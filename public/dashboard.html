@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ZapForge API Dashboard</title>
+  <style>
+    :root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    body { margin: 0; background: #0f172a; color: #e5e7eb; }
+    main { max-width: 1120px; margin: 0 auto; padding: 32px 20px 64px; }
+    .hero { padding: 28px; border: 1px solid rgba(148,163,184,.2); border-radius: 28px; background: radial-gradient(circle at top left, rgba(14,165,233,.22), transparent 38%), #111827; box-shadow: 0 24px 80px rgba(0,0,0,.35); }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 18px; margin-top: 18px; }
+    .card { border: 1px solid rgba(148,163,184,.18); border-radius: 22px; padding: 18px; background: rgba(17,24,39,.86); }
+    h1 { font-size: clamp(2rem, 7vw, 4.6rem); line-height: .92; margin: 0; letter-spacing: -.06em; }
+    h2 { margin: 0 0 12px; }
+    p { color: #94a3b8; }
+    input, textarea, select { width: 100%; box-sizing: border-box; border: 1px solid rgba(148,163,184,.25); background: rgba(15,23,42,.9); color: #e5e7eb; border-radius: 14px; padding: 12px 14px; margin: 7px 0; outline: none; }
+    button { border: 0; border-radius: 14px; padding: 12px 16px; background: linear-gradient(135deg, #06b6d4, #2563eb); color: white; font-weight: 700; cursor: pointer; }
+    button.secondary { background: rgba(148,163,184,.18); }
+    pre { overflow: auto; background: #020617; border-radius: 16px; padding: 14px; color: #a7f3d0; min-height: 90px; }
+    img.qr { max-width: 260px; background: white; padding: 12px; border-radius: 18px; display: none; }
+    a { color: #67e8f9; }
+  </style>
+</head>
+<body>
+<main>
+  <section class="hero">
+    <p>Self-hosted • Multi-session • REST • Webhooks assinados • Baileys engine</p>
+    <h1>ZapForge API</h1>
+    <p>Dashboard mínimo para testar sessões, QR Code, envio de texto e webhooks. Para documentação completa, abra <a href="/docs">/docs</a>.</p>
+    <input id="apiKey" placeholder="Cole sua API_KEY aqui" />
+  </section>
+
+  <section class="grid">
+    <div class="card">
+      <h2>1. Criar sessão</h2>
+      <input id="sessionId" value="default" />
+      <button onclick="createSession()">Criar / iniciar</button>
+      <button class="secondary" onclick="loadSessions()">Atualizar status</button>
+      <pre id="sessionsOut"></pre>
+    </div>
+
+    <div class="card">
+      <h2>2. QR Code</h2>
+      <button onclick="loadQr()">Carregar QR</button>
+      <p>Escaneie no celular quando o estado estiver <strong>qr</strong>.</p>
+      <img id="qr" class="qr" alt="QR Code" />
+      <pre id="qrOut"></pre>
+    </div>
+
+    <div class="card">
+      <h2>3. Enviar texto</h2>
+      <input id="to" placeholder="5599999999999 ou grupo@g.us" />
+      <textarea id="body" rows="4" placeholder="Mensagem"></textarea>
+      <button onclick="sendText()">Enviar</button>
+      <pre id="sendOut"></pre>
+    </div>
+
+    <div class="card">
+      <h2>4. Webhook</h2>
+      <input id="webhookUrl" placeholder="https://seusite.com/webhook" />
+      <button onclick="createWebhook()">Cadastrar webhook</button>
+      <button class="secondary" onclick="loadWebhooks()">Listar</button>
+      <pre id="webhookOut"></pre>
+    </div>
+  </section>
+</main>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  const headers = () => ({ 'content-type': 'application/json', 'x-api-key': $('apiKey').value });
+  const print = (id, data) => $(id).textContent = JSON.stringify(data, null, 2);
+
+  async function request(path, options = {}) {
+    const res = await fetch(path, { ...options, headers: { ...headers(), ...(options.headers || {}) } });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw data;
+    return data;
+  }
+
+  async function createSession() {
+    try { print('sessionsOut', await request('/v1/sessions', { method: 'POST', body: JSON.stringify({ id: $('sessionId').value }) })); }
+    catch (e) { print('sessionsOut', e); }
+  }
+
+  async function loadSessions() {
+    try { print('sessionsOut', await request('/v1/sessions')); }
+    catch (e) { print('sessionsOut', e); }
+  }
+
+  async function loadQr() {
+    try {
+      const data = await request(`/v1/sessions/${$('sessionId').value}/qr`);
+      $('qr').src = data.data.image;
+      $('qr').style.display = 'block';
+      print('qrOut', { sessionId: data.data.sessionId, qr: data.data.qr.slice(0, 60) + '...' });
+    } catch (e) { $('qr').style.display = 'none'; print('qrOut', e); }
+  }
+
+  async function sendText() {
+    try { print('sendOut', await request('/v1/messages/text', { method: 'POST', body: JSON.stringify({ sessionId: $('sessionId').value, to: $('to').value, body: $('body').value }) })); }
+    catch (e) { print('sendOut', e); }
+  }
+
+  async function createWebhook() {
+    try { print('webhookOut', await request('/v1/webhooks', { method: 'POST', body: JSON.stringify({ url: $('webhookUrl').value, events: ['message.received', 'session.updated'] }) })); }
+    catch (e) { print('webhookOut', e); }
+  }
+
+  async function loadWebhooks() {
+    try { print('webhookOut', await request('/v1/webhooks')); }
+    catch (e) { print('webhookOut', e); }
+  }
+</script>
+</body>
+</html>

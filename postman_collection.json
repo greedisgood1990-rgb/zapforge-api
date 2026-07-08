@@ -1,0 +1,49 @@
+{
+  "info": {
+    "name": "ZapForge API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:2785" },
+    { "key": "apiKey", "value": "change-this-super-secret-key" },
+    { "key": "sessionId", "value": "default" }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "request": { "method": "GET", "url": "{{baseUrl}}/health" }
+    },
+    {
+      "name": "Create Session",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "x-api-key", "value": "{{apiKey}}" },
+          { "key": "content-type", "value": "application/json" }
+        ],
+        "url": "{{baseUrl}}/v1/sessions",
+        "body": { "mode": "raw", "raw": "{\"id\":\"{{sessionId}}\",\"engine\":\"baileys\"}" }
+      }
+    },
+    {
+      "name": "Get QR",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "x-api-key", "value": "{{apiKey}}" }],
+        "url": "{{baseUrl}}/v1/sessions/{{sessionId}}/qr"
+      }
+    },
+    {
+      "name": "Send Text",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "x-api-key", "value": "{{apiKey}}" },
+          { "key": "content-type", "value": "application/json" }
+        ],
+        "url": "{{baseUrl}}/v1/messages/text",
+        "body": { "mode": "raw", "raw": "{\"sessionId\":\"{{sessionId}}\",\"to\":\"5599999999999\",\"body\":\"Olá da ZapForge API\"}" }
+      }
+    }
+  ]
+}

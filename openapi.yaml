@@ -1,0 +1,144 @@
+openapi: 3.0.3
+info:
+  title: ZapForge API
+  version: 1.0.0
+  description: Self-hosted messaging gateway with multi-session REST API, Baileys engine and signed webhooks.
+servers:
+  - url: http://localhost:2785
+security:
+  - ApiKeyAuth: []
+  - BearerAuth: []
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-api-key
+    BearerAuth:
+      type: http
+      scheme: bearer
+paths:
+  /health:
+    get:
+      tags: [System]
+      summary: Health check
+      responses:
+        '200':
+          description: OK
+  /v1/sessions:
+    get:
+      tags: [Sessions]
+      summary: List sessions
+      responses:
+        '200':
+          description: Sessions list
+    post:
+      tags: [Sessions]
+      summary: Create/start a session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id]
+              properties:
+                id:
+                  type: string
+                engine:
+                  type: string
+                  enum: [baileys]
+      responses:
+        '200':
+          description: Session snapshot
+  /v1/sessions/{id}:
+    get:
+      tags: [Sessions]
+      summary: Get session
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Session snapshot
+    delete:
+      tags: [Sessions]
+      summary: Delete session
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Deleted
+  /v1/sessions/{id}/qr:
+    get:
+      tags: [Sessions]
+      summary: Get QR code
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: QR raw and data URL
+  /v1/messages/text:
+    post:
+      tags: [Messages]
+      summary: Send text message
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [to]
+              properties:
+                sessionId:
+                  type: string
+                  default: default
+                to:
+                  type: string
+                body:
+                  type: string
+                text:
+                  type: string
+                no_link_preview:
+                  type: boolean
+      responses:
+        '200':
+          description: Sent message
+  /messages/text:
+    post:
+      tags: [Compatibility]
+      summary: Whapi-style alias
+      responses:
+        '200':
+          description: Sent message
+  /v1/messages/media:
+    post:
+      tags: [Messages]
+      summary: Send media message
+      responses:
+        '200':
+          description: Sent media
+  /v1/webhooks:
+    get:
+      tags: [Webhooks]
+      summary: List webhooks
+      responses:
+        '200':
+          description: Webhooks
+    post:
+      tags: [Webhooks]
+      summary: Create webhook
+      responses:
+        '200':
+          description: Webhook

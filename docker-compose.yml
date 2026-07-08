@@ -1,0 +1,11 @@
+services:
+  zapforge-api:
+    build: .
+    container_name: zapforge-api
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "2785:2785"
+    volumes:
+      - ./data:/app/data
