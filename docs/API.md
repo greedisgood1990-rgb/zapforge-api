@@ -1,6 +1,6 @@
-# Documentação da API
+# ZapForge API v1.1.0
 
-Base URL local:
+Base local:
 
 ```txt
 http://localhost:2785
@@ -18,30 +18,9 @@ ou:
 Authorization: Bearer SUA_API_KEY
 ```
 
-## Health
-
-### `GET /health`
-
-Resposta:
-
-```json
-{
-  "ok": true,
-  "name": "ZapForge API",
-  "version": "1.0.0",
-  "uptime": 12.34
-}
-```
-
 ## Sessões
 
-Uma sessão representa um número conectado.
-
 ### `POST /v1/sessions`
-
-Cria ou inicia uma sessão.
-
-Body:
 
 ```json
 {
@@ -50,190 +29,303 @@ Body:
 }
 ```
 
-Resposta:
+O ID aceita 2 a 64 caracteres: letras, números, `_` e `-`.
+
+### `GET /v1/sessions/:id/capabilities`
+
+Informa quais recursos estão disponíveis e quais são experimentais.
 
 ```json
 {
   "data": {
-    "id": "default",
-    "engine": "baileys",
-    "state": "qr",
-    "qr": "2@....",
-    "createdAt": "2026-07-08T12:00:00.000Z",
-    "updatedAt": "2026-07-08T12:00:01.000Z"
+    "provider": "baileys",
+    "capabilities": {
+      "messages.groupMention": true,
+      "messages.replyButtons": "experimental",
+      "messages.polls": true,
+      "groups.participants": true
+    }
   }
 }
 ```
 
-Estados possíveis:
+Outras rotas:
 
-| Estado | Significado |
-|---|---|
-| `created` | sessão registrada |
-| `connecting` | tentando conectar |
-| `qr` | QR disponível para escanear |
-| `connected` | conectada e pronta |
-| `disconnected` | desconectada temporariamente |
-| `logged_out` | celular saiu da sessão |
-| `failed` | falha não recuperável |
-
-### `GET /v1/sessions`
-
-Lista todas as sessões.
-
-### `GET /v1/sessions/:id`
-
-Detalha uma sessão.
-
-### `GET /v1/sessions/:id/qr`
-
-Retorna QR raw e data URL.
-
-Resposta:
-
-```json
-{
-  "data": {
-    "sessionId": "default",
-    "qr": "2@....",
-    "image": "data:image/png;base64,..."
-  }
-}
-```
-
-### `POST /v1/sessions/:id/stop`
-
-Para a sessão em memória, mantendo os arquivos de autenticação.
-
-### `POST /v1/sessions/:id/logout`
-
-Faz logout do aparelho conectado.
-
-### `DELETE /v1/sessions/:id`
-
-Apaga sessão, metadados e arquivos de autenticação.
+- `GET /v1/sessions`
+- `GET /v1/sessions/:id`
+- `GET /v1/sessions/:id/qr`
+- `POST /v1/sessions/:id/start`
+- `POST /v1/sessions/:id/stop`
+- `POST /v1/sessions/:id/logout`
+- `DELETE /v1/sessions/:id`
 
 ## Mensagens
 
-### `POST /v1/messages/text`
-
-Body:
+### Texto — `POST /v1/messages/text`
 
 ```json
 {
   "sessionId": "default",
-  "to": "5599999999999",
+  "to": "5511999999999",
   "body": "Olá!",
   "no_link_preview": true,
   "typing_time": 1200
 }
 ```
 
-Campos:
-
-| Campo | Tipo | Obrigatório | Observação |
-|---|---:|---:|---|
-| `sessionId` | string | não | padrão: `default` |
-| `to` | string | sim | número, JID ou grupo `@g.us` |
-| `body` | string | sim | texto da mensagem |
-| `no_link_preview` | boolean | não | desativa preview |
-| `typing_time` | number | não | simula digitando por até 10s |
-
-Resposta:
+### Mídia — `POST /v1/messages/media`
 
 ```json
 {
-  "data": {
-    "id": "ABC123",
-    "sessionId": "default",
-    "to": "5599999999999@s.whatsapp.net",
-    "status": "sent",
-    "timestamp": "2026-07-08T12:00:00.000Z"
+  "sessionId": "default",
+  "to": "5511999999999",
+  "type": "image",
+  "url": "https://example.com/image.jpg",
+  "caption": "Imagem"
+}
+```
+
+Tipos: `image`, `video`, `audio`, `document`, `sticker`.
+
+### Mencionar todos — `POST /v1/messages/group-mention`
+
+```json
+{
+  "sessionId": "default",
+  "groupId": "120363000000000000@g.us",
+  "body": "Atenção, grupo!",
+  "mentionAll": true,
+  "appendMentions": true,
+  "includeAdmins": true
+}
+```
+
+Mencionar apenas pessoas selecionadas:
+
+```json
+{
+  "sessionId": "default",
+  "groupId": "120363000000000000@g.us",
+  "body": "Precisamos da confirmação de vocês.",
+  "mentionAll": false,
+  "mentions": ["5511999999999", "5511888888888"]
+}
+```
+
+- `appendMentions=true` inclui visualmente `@numero` no texto.
+- Números que não pertencem ao grupo são ignorados.
+- O limite é configurado por `GROUP_MENTION_MAX_PARTICIPANTS`.
+
+### Botões — `POST /v1/messages/buttons`
+
+```json
+{
+  "sessionId": "default",
+  "to": "5511999999999",
+  "title": "Pedido #123",
+  "body": "Como deseja continuar?",
+  "footer": "ZapForge",
+  "buttons": [
+    {"type": "reply", "id": "confirm", "text": "Confirmar"},
+    {"type": "url", "text": "Abrir pedido", "url": "https://example.com/orders/123"},
+    {"type": "call", "text": "Ligar", "phone": "+5511999999999"},
+    {"type": "copy", "text": "Copiar PIX", "value": "000201..."}
+  ]
+}
+```
+
+Tipos:
+
+- `reply`: requer `id`.
+- `url`: requer `url`.
+- `call`: requer `phone`.
+- `copy`: requer `value`.
+
+Os botões native-flow são experimentais no provider Baileys.
+
+### Lista — `POST /v1/messages/list`
+
+```json
+{
+  "sessionId": "default",
+  "to": "5511999999999",
+  "title": "Produtos",
+  "body": "Escolha um produto:",
+  "buttonText": "Ver produtos",
+  "sections": [
+    {
+      "title": "Planos",
+      "rows": [
+        {"id": "basic", "title": "Básico", "description": "Até 1.000 mensagens"},
+        {"id": "pro", "title": "Pro", "description": "Até 10.000 mensagens"}
+      ]
+    }
+  ]
+}
+```
+
+### Enquete — `POST /v1/messages/poll`
+
+```json
+{
+  "sessionId": "default",
+  "to": "120363000000000000@g.us",
+  "question": "Qual horário é melhor?",
+  "options": ["09:00", "14:00", "18:00"],
+  "selectableCount": 1
+}
+```
+
+## Grupos
+
+### Listar — `GET /v1/sessions/:sessionId/groups`
+
+### Consultar — `GET /v1/sessions/:sessionId/groups/:groupId`
+
+Retorna metadados e participantes.
+
+### Criar — `POST /v1/sessions/:sessionId/groups`
+
+```json
+{
+  "subject": "Clientes VIP",
+  "participants": ["5511999999999", "5511888888888"]
+}
+```
+
+### Editar — `PATCH /v1/sessions/:sessionId/groups/:groupId`
+
+```json
+{
+  "subject": "Novo nome",
+  "description": "Descrição atualizada",
+  "settings": {
+    "announce": true,
+    "locked": true,
+    "ephemeralDuration": 86400,
+    "memberAddMode": "admin_add",
+    "joinApprovalMode": true
   }
 }
 ```
 
-### Alias compatível: `POST /messages/text`
+- `announce=true`: somente administradores enviam mensagens.
+- `locked=true`: somente administradores alteram dados do grupo.
+- `ephemeralDuration`: duração das mensagens temporárias em segundos; `0` desativa.
+- `memberAddMode=admin_add`: somente administradores adicionam membros.
+- `memberAddMode=all_member_add`: qualquer participante pode adicionar membros.
+- `joinApprovalMode=true`: novos participantes por link ficam pendentes para aprovação.
 
-Aceita o mesmo corpo. Útil para clientes inspirados no padrão Whapi, que usam `/messages/text` com `to` e `body`.
-
-### `POST /v1/messages/media`
-
-Body por URL:
-
-```json
-{
-  "sessionId": "default",
-  "to": "5599999999999",
-  "type": "image",
-  "url": "https://exemplo.com/image.jpg",
-  "caption": "Imagem enviada pela ZapForge"
-}
-```
-
-Body por base64:
+### Participantes — `POST /v1/sessions/:sessionId/groups/:groupId/participants`
 
 ```json
 {
-  "sessionId": "default",
-  "to": "5599999999999",
-  "type": "document",
-  "base64": "JVBERi0xLjQKJ...",
-  "filename": "contrato.pdf",
-  "mimetype": "application/pdf"
+  "participants": ["5511999999999"],
+  "action": "add"
 }
 ```
 
-Tipos suportados:
+Ações: `add`, `remove`.
 
-- `image`
-- `video`
-- `audio`
-- `document`
-- `sticker`
+### Administradores — `POST /v1/sessions/:sessionId/groups/:groupId/admins`
 
-## Grupos
+```json
+{
+  "participants": ["5511999999999"],
+  "action": "promote"
+}
+```
 
-### `GET /v1/sessions/:sessionId/groups`
+Ações: `promote`, `demote`.
 
-Lista grupos nos quais a sessão participa.
+### Solicitações de entrada
 
-### `GET /v1/sessions/:sessionId/groups/:groupId`
+Listar pendentes:
 
-Retorna metadados de um grupo.
+```http
+GET /v1/sessions/:sessionId/groups/:groupId/join-requests
+```
+
+Aprovar ou rejeitar:
+
+```http
+POST /v1/sessions/:sessionId/groups/:groupId/join-requests
+```
+
+```json
+{
+  "participants": ["5511999999999"],
+  "action": "approve"
+}
+```
+
+Ações: `approve`, `reject`.
+
+### Convite
+
+- `GET /v1/sessions/:sessionId/groups/:groupId/invite`
+- `POST /v1/sessions/:sessionId/groups/:groupId/invite/reset`
+- `POST /v1/sessions/:sessionId/groups/invite/accept`
+
+Entrar pelo convite:
+
+```json
+{
+  "code": "https://chat.whatsapp.com/CODIGO"
+}
+```
+
+### Sair — `POST /v1/sessions/:sessionId/groups/:groupId/leave`
 
 ## Webhooks
 
-### `GET /v1/webhooks`
+Eventos disponíveis:
 
-Lista webhooks.
+```txt
+session.updated
+message.received
+message.sent
+message.interaction
+group.updated
+group.participants.updated
+```
 
-### `POST /v1/webhooks`
-
-Body:
+### Evento de interação
 
 ```json
 {
-  "url": "https://seusite.com/webhook/zapforge",
-  "events": ["message.received", "message.sent", "session.updated"],
-  "secret": "opcional",
-  "active": true
+  "id": "delivery-id",
+  "event": "message.interaction",
+  "timestamp": "2026-07-12T20:00:00.000Z",
+  "sessionId": "default",
+  "payload": {
+    "id": "message-id",
+    "from": "5511999999999@s.whatsapp.net",
+    "interaction": {
+      "type": "native_flow",
+      "id": "confirm",
+      "title": "Confirmar",
+      "params": {"id": "confirm", "display_text": "Confirmar"}
+    }
+  }
 }
 ```
 
-Se `secret` não for enviado, a API gera um segredo automaticamente.
+### Evento de participantes
 
-### `PATCH /v1/webhooks/:id`
-
-Atualiza URL, eventos, segredo ou status.
-
-### `DELETE /v1/webhooks/:id`
-
-Remove webhook.
+```json
+{
+  "event": "group.participants.updated",
+  "sessionId": "default",
+  "payload": {
+    "id": "120363000000000000@g.us",
+    "action": "add",
+    "participants": ["5511999999999@s.whatsapp.net"]
+  }
+}
+```
 
 ## Erros
-
-Formato padrão:
 
 ```json
 {
@@ -242,11 +334,10 @@ Formato padrão:
 }
 ```
 
-Códigos comuns:
-
 | HTTP | Causa |
 |---:|---|
-| 401 | API key inválida/ausente |
-| 404 | sessão/QR/webhook não encontrado |
-| 429 | limite global da API excedido |
-| 500 | erro interno ou falha do engine |
+| 400 | payload inválido |
+| 401 | API key inválida |
+| 404 | sessão, grupo ou QR não encontrado |
+| 429 | limite excedido |
+| 500 | falha interna/provider |

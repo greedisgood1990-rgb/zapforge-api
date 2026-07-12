@@ -28,7 +28,7 @@ const app = Fastify({
 });
 
 await app.register(cors, {
-  origin: config.CORS_ORIGIN === '*' ? true : config.CORS_ORIGIN.split(',').map((origin) => origin.trim())
+  origin: config.CORS_ORIGIN === '*' ? true : config.CORS_ORIGIN.split(',').map((origin: string) => origin.trim())
 });
 await app.register(multipart, { limits: { fileSize: 25 * 1024 * 1024 } });
 await app.register(rateLimit, { max: config.RATE_LIMIT_MAX, timeWindow: config.RATE_LIMIT_WINDOW });
@@ -37,7 +37,7 @@ await app.register(swagger, {
     info: {
       title: 'ZapForge API',
       description: 'Self-hosted messaging gateway with REST API, multi-session support and signed webhooks.',
-      version: '1.0.0'
+      version: '1.1.0'
     },
     servers: [{ url: config.PUBLIC_URL }],
     components: {

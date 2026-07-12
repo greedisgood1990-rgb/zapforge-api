@@ -3,6 +3,8 @@ import QRCode from 'qrcode';
 import type { SessionManager } from '../core/sessionManager.js';
 import type { EngineName } from '../core/types.js';
 
+const sessionIdSchema = { type: 'string', pattern: '^[a-zA-Z0-9][a-zA-Z0-9_-]{1,63}$' } as const;
+
 export async function sessionRoutes(app: FastifyInstance, manager: SessionManager): Promise<void> {
   app.get('/v1/sessions', { preHandler: app.verifyApiKey, schema: { tags: ['Sessions'], summary: 'List sessions' } }, async () => ({
     data: manager.list()
@@ -19,7 +21,7 @@ export async function sessionRoutes(app: FastifyInstance, manager: SessionManage
         type: 'object',
         required: ['id'],
         properties: {
-          id: { type: 'string', minLength: 2, description: 'Stable session slug, e.g. sales-main' },
+          id: { ...sessionIdSchema, description: 'Stable session slug, e.g. sales-main' },
           engine: { type: 'string', enum: ['baileys'], default: 'baileys' }
         }
       }
@@ -33,6 +35,11 @@ export async function sessionRoutes(app: FastifyInstance, manager: SessionManage
     if (!session) return reply.code(404).send({ error: 'not_found', message: 'Session not found.' });
     return { data: session };
   });
+
+  app.get<{ Params: { id: string } }>('/v1/sessions/:id/capabilities', {
+    preHandler: app.verifyApiKey,
+    schema: { tags: ['Sessions'], summary: 'List provider capabilities and experimental features' }
+  }, async (request) => ({ data: manager.capabilities(request.params.id) }));
 
   app.post<{ Params: { id: string } }>('/v1/sessions/:id/start', { preHandler: app.verifyApiKey, schema: { tags: ['Sessions'], summary: 'Start a stored session' } }, async (request) => ({
     data: await manager.start(request.params.id)

@@ -1,49 +1,392 @@
 {
   "info": {
-    "name": "ZapForge API",
+    "name": "ZapForge API 1.1",
+    "description": "Groups, mentions, buttons, lists and polls.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
-    { "key": "baseUrl", "value": "http://localhost:2785" },
-    { "key": "apiKey", "value": "change-this-super-secret-key" },
-    { "key": "sessionId", "value": "default" }
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:2785"
+    },
+    {
+      "key": "apiKey",
+      "value": "change-this-super-secret-key"
+    },
+    {
+      "key": "sessionId",
+      "value": "default"
+    },
+    {
+      "key": "groupId",
+      "value": "120363000000000000@g.us"
+    }
   ],
   "item": [
     {
-      "name": "Health",
-      "request": { "method": "GET", "url": "{{baseUrl}}/health" }
+      "name": "System",
+      "item": [
+        {
+          "name": "Health",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/health"
+          }
+        }
+      ]
     },
     {
-      "name": "Create Session",
-      "request": {
-        "method": "POST",
-        "header": [
-          { "key": "x-api-key", "value": "{{apiKey}}" },
-          { "key": "content-type", "value": "application/json" }
-        ],
-        "url": "{{baseUrl}}/v1/sessions",
-        "body": { "mode": "raw", "raw": "{\"id\":\"{{sessionId}}\",\"engine\":\"baileys\"}" }
-      }
+      "name": "Sessions",
+      "item": [
+        {
+          "name": "Create Session",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              },
+              {
+                "key": "content-type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/sessions",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"{{sessionId}}\",\n  \"engine\": \"baileys\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get QR",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/sessions/{{sessionId}}/qr"
+          }
+        },
+        {
+          "name": "Capabilities",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/sessions/{{sessionId}}/capabilities"
+          }
+        }
+      ]
     },
     {
-      "name": "Get QR",
-      "request": {
-        "method": "GET",
-        "header": [{ "key": "x-api-key", "value": "{{apiKey}}" }],
-        "url": "{{baseUrl}}/v1/sessions/{{sessionId}}/qr"
-      }
+      "name": "Messages",
+      "item": [
+        {
+          "name": "Send Text",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              },
+              {
+                "key": "content-type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/messages/text",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sessionId\": \"{{sessionId}}\",\n  \"to\": \"5599999999999\",\n  \"body\": \"Olá da ZapForge API\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Mention All",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              },
+              {
+                "key": "content-type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/messages/group-mention",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sessionId\": \"{{sessionId}}\",\n  \"groupId\": \"{{groupId}}\",\n  \"body\": \"Atenção, pessoal!\",\n  \"mentionAll\": true,\n  \"appendMentions\": true\n}"
+            }
+          }
+        },
+        {
+          "name": "Send Buttons",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              },
+              {
+                "key": "content-type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/messages/buttons",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sessionId\": \"{{sessionId}}\",\n  \"to\": \"5599999999999\",\n  \"body\": \"Escolha uma opção:\",\n  \"buttons\": [\n    {\n      \"type\": \"reply\",\n      \"id\": \"confirm\",\n      \"text\": \"Confirmar\"\n    },\n    {\n      \"type\": \"url\",\n      \"text\": \"Visitar site\",\n      \"url\": \"https://example.com\"\n    }\n  ]\n}"
+            }
+          }
+        },
+        {
+          "name": "Send List",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              },
+              {
+                "key": "content-type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/messages/list",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sessionId\": \"{{sessionId}}\",\n  \"to\": \"5599999999999\",\n  \"body\": \"Escolha um plano:\",\n  \"buttonText\": \"Ver planos\",\n  \"sections\": [\n    {\n      \"title\": \"Planos\",\n      \"rows\": [\n        {\n          \"id\": \"basic\",\n          \"title\": \"Básico\"\n        },\n        {\n          \"id\": \"pro\",\n          \"title\": \"Pro\"\n        }\n      ]\n    }\n  ]\n}"
+            }
+          }
+        },
+        {
+          "name": "Send Poll",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              },
+              {
+                "key": "content-type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/messages/poll",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sessionId\": \"{{sessionId}}\",\n  \"to\": \"{{groupId}}\",\n  \"question\": \"Qual horário é melhor?\",\n  \"options\": [\n    \"09:00\",\n    \"14:00\",\n    \"18:00\"\n  ],\n  \"selectableCount\": 1\n}"
+            }
+          }
+        }
+      ]
     },
     {
-      "name": "Send Text",
-      "request": {
-        "method": "POST",
-        "header": [
-          { "key": "x-api-key", "value": "{{apiKey}}" },
-          { "key": "content-type", "value": "application/json" }
-        ],
-        "url": "{{baseUrl}}/v1/messages/text",
-        "body": { "mode": "raw", "raw": "{\"sessionId\":\"{{sessionId}}\",\"to\":\"5599999999999\",\"body\":\"Olá da ZapForge API\"}" }
-      }
+      "name": "Groups",
+      "item": [
+        {
+          "name": "List Groups",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/sessions/{{sessionId}}/groups"
+          }
+        },
+        {
+          "name": "Get Group",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/sessions/{{sessionId}}/groups/{{groupId}}"
+          }
+        },
+        {
+          "name": "Create Group",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              },
+              {
+                "key": "content-type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/sessions/{{sessionId}}/groups",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subject\": \"Clientes VIP\",\n  \"participants\": [\n    \"5511999999999\"\n  ]\n}"
+            }
+          }
+        },
+        {
+          "name": "Update Group",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              },
+              {
+                "key": "content-type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/sessions/{{sessionId}}/groups/{{groupId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subject\": \"Novo nome\",\n  \"settings\": {\n    \"announce\": false,\n    \"locked\": false\n  }\n}"
+            }
+          }
+        },
+        {
+          "name": "Add Participant",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              },
+              {
+                "key": "content-type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/sessions/{{sessionId}}/groups/{{groupId}}/participants",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"participants\": [\n    \"5511888888888\"\n  ],\n  \"action\": \"add\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Promote Admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              },
+              {
+                "key": "content-type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/sessions/{{sessionId}}/groups/{{groupId}}/admins",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"participants\": [\n    \"5511888888888\"\n  ],\n  \"action\": \"promote\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Invite",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/sessions/{{sessionId}}/groups/{{groupId}}/invite"
+          }
+        },
+        {
+          "name": "Reset Invite",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              },
+              {
+                "key": "content-type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/sessions/{{sessionId}}/groups/{{groupId}}/invite/reset",
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            }
+          }
+        },
+        {
+          "name": "Accept Invite",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              },
+              {
+                "key": "content-type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/sessions/{{sessionId}}/groups/invite/accept",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"https://chat.whatsapp.com/CODE\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Leave Group",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              },
+              {
+                "key": "content-type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/sessions/{{sessionId}}/groups/{{groupId}}/leave",
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            }
+          }
+        }
+      ]
     }
   ]
 }

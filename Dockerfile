@@ -1,7 +1,10 @@
 FROM node:22-bookworm-slim AS deps
 WORKDIR /app
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ca-certificates git openssh-client \
+  && rm -rf /var/lib/apt/lists/*
 COPY package*.json ./
-RUN npm install
+RUN npm install --no-audit --no-fund
 
 FROM deps AS build
 WORKDIR /app
@@ -13,10 +16,10 @@ FROM node:22-bookworm-slim AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends ca-certificates \
+  && apt-get install -y --no-install-recommends ca-certificates git \
   && rm -rf /var/lib/apt/lists/*
 COPY package*.json ./
-RUN npm install --omit=dev
+RUN npm install --omit=dev --no-audit --no-fund
 COPY --from=build /app/dist ./dist
 COPY public ./public
 COPY docs ./docs

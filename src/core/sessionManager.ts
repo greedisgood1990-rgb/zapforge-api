@@ -2,11 +2,25 @@ import fs from 'node:fs/promises';
 import type { MessagingEngine } from '../adapters/base.js';
 import { BaileysEngine } from '../adapters/baileys/BaileysEngine.js';
 import type { AppConfig } from '../config.js';
-import type { EngineName, OutgoingMediaMessage, OutgoingTextMessage, SentMessageResult, SessionSnapshot } from './types.js';
+import type {
+  EngineCapabilities,
+  EngineName,
+  GroupParticipantAction,
+  GroupUpdateInput,
+  OutgoingButtonsMessage,
+  OutgoingGroupMentionMessage,
+  OutgoingListMessage,
+  OutgoingMediaMessage,
+  OutgoingPollMessage,
+  OutgoingTextMessage,
+  SentMessageResult,
+  SessionSnapshot
+} from './types.js';
 import { GatewayEventBus } from './eventBus.js';
 import { JsonStore } from '../storage/jsonStore.js';
 import { nowIso } from '../utils/time.js';
 import { PerSessionRatePolicy } from './ratePolicy.js';
+import { assertValidSessionId, safeSessionPath } from '../utils/sessionId.js';
 
 export class SessionManager {
   private engines = new Map<string, MessagingEngine>();
@@ -40,7 +54,12 @@ export class SessionManager {
     return this.engines.get(id)?.snapshot() || this.store.getSession(id);
   }
 
+  capabilities(id: string): EngineCapabilities {
+    return this.requireEngine(id).capabilities();
+  }
+
   async start(id: string, engine: EngineName = 'baileys', restore = false): Promise<SessionSnapshot> {
+    assertValidSessionId(id);
     if (this.engines.has(id)) return this.engines.get(id)!.snapshot();
 
     const existing = this.store.getSession(id);
@@ -81,13 +100,14 @@ export class SessionManager {
   }
 
   async remove(id: string): Promise<void> {
+    assertValidSessionId(id);
     const engine = this.engines.get(id);
     if (engine) {
       await engine.stop().catch(() => undefined);
       this.engines.delete(id);
     }
     await this.store.removeSession(id);
-    await fs.rm(`${this.config.SESSION_DIR}/${id}`, { recursive: true, force: true });
+    await fs.rm(safeSessionPath(this.config.SESSION_DIR, id), { recursive: true, force: true });
     await this.store.audit('api', 'session.remove', { id });
   }
 
@@ -105,6 +125,39 @@ export class SessionManager {
     return result;
   }
 
+  async sendGroupMention(input: OutgoingGroupMentionMessage): Promise<SentMessageResult> {
+    this.ratePolicy.assertAllowed(input.sessionId);
+    const result = await this.requireEngine(input.sessionId).sendGroupMention(input);
+    await this.store.audit('api', 'message.group_mention.sent', {
+      sessionId: input.sessionId,
+      groupId: input.groupId,
+      messageId: result.id,
+      mentionedCount: result.mentionedCount
+    });
+    return result;
+  }
+
+  async sendButtons(input: OutgoingButtonsMessage): Promise<SentMessageResult> {
+    this.ratePolicy.assertAllowed(input.sessionId);
+    const result = await this.requireEngine(input.sessionId).sendButtons(input);
+    await this.store.audit('api', 'message.buttons.sent', { sessionId: input.sessionId, to: input.to, messageId: result.id });
+    return result;
+  }
+
+  async sendList(input: OutgoingListMessage): Promise<SentMessageResult> {
+    this.ratePolicy.assertAllowed(input.sessionId);
+    const result = await this.requireEngine(input.sessionId).sendList(input);
+    await this.store.audit('api', 'message.list.sent', { sessionId: input.sessionId, to: input.to, messageId: result.id });
+    return result;
+  }
+
+  async sendPoll(input: OutgoingPollMessage): Promise<SentMessageResult> {
+    this.ratePolicy.assertAllowed(input.sessionId);
+    const result = await this.requireEngine(input.sessionId).sendPoll(input);
+    await this.store.audit('api', 'message.poll.sent', { sessionId: input.sessionId, to: input.to, messageId: result.id });
+    return result;
+  }
+
   async listGroups(sessionId: string): Promise<unknown[]> {
     return this.requireEngine(sessionId).listGroups();
   }
@@ -113,12 +166,77 @@ export class SessionManager {
     return this.requireEngine(sessionId).getGroup(groupId);
   }
 
+  async createGroup(sessionId: string, subject: string, participants: string[]): Promise<unknown> {
+    this.assertParticipantBatch(participants);
+    const result = await this.requireEngine(sessionId).createGroup(subject, participants);
+    await this.store.audit('api', 'group.create', { sessionId, subject, participants: participants.length });
+    return result;
+  }
+
+  async updateGroup(sessionId: string, groupId: string, input: GroupUpdateInput): Promise<unknown> {
+    const result = await this.requireEngine(sessionId).updateGroup(groupId, input);
+    await this.store.audit('api', 'group.update', { sessionId, groupId, fields: Object.keys(input) });
+    return result;
+  }
+
+  async updateGroupParticipants(sessionId: string, groupId: string, participants: string[], action: GroupParticipantAction): Promise<unknown> {
+    this.assertParticipantBatch(participants);
+    const result = await this.requireEngine(sessionId).updateGroupParticipants(groupId, participants, action);
+    await this.store.audit('api', `group.participants.${action}`, { sessionId, groupId, participants: participants.length });
+    return result;
+  }
+
+  async listGroupJoinRequests(sessionId: string, groupId: string): Promise<unknown[]> {
+    return this.requireEngine(sessionId).listGroupJoinRequests(groupId);
+  }
+
+  async updateGroupJoinRequests(
+    sessionId: string,
+    groupId: string,
+    participants: string[],
+    action: 'approve' | 'reject'
+  ): Promise<unknown> {
+    this.assertParticipantBatch(participants);
+    const result = await this.requireEngine(sessionId).updateGroupJoinRequests(groupId, participants, action);
+    await this.store.audit('api', `group.join_requests.${action}`, { sessionId, groupId, participants: participants.length });
+    return result;
+  }
+
+  async getGroupInviteCode(sessionId: string, groupId: string): Promise<string> {
+    return this.requireEngine(sessionId).getGroupInviteCode(groupId);
+  }
+
+  async revokeGroupInviteCode(sessionId: string, groupId: string): Promise<string> {
+    const code = await this.requireEngine(sessionId).revokeGroupInviteCode(groupId);
+    await this.store.audit('api', 'group.invite.revoke', { sessionId, groupId });
+    return code;
+  }
+
+  async acceptGroupInvite(sessionId: string, code: string): Promise<string> {
+    const groupId = await this.requireEngine(sessionId).acceptGroupInvite(code);
+    await this.store.audit('api', 'group.invite.accept', { sessionId, groupId });
+    return groupId;
+  }
+
+  async leaveGroup(sessionId: string, groupId: string): Promise<void> {
+    await this.requireEngine(sessionId).leaveGroup(groupId);
+    await this.store.audit('api', 'group.leave', { sessionId, groupId });
+  }
+
+  private assertParticipantBatch(participants: string[]): void {
+    if (!participants.length) throw new Error('At least one participant is required.');
+    if (participants.length > this.config.GROUP_PARTICIPANT_BATCH_MAX) {
+      throw new Error(`Participant batch limit exceeded. Maximum: ${this.config.GROUP_PARTICIPANT_BATCH_MAX}.`);
+    }
+  }
+
   private createEngine(engine: EngineName, snapshot: SessionSnapshot): MessagingEngine {
     if (engine === 'baileys') {
       return new BaileysEngine({
         id: snapshot.id,
         sessionDir: this.config.SESSION_DIR,
         browserName: this.config.APP_BROWSER_NAME,
+        maxMentionParticipants: this.config.GROUP_MENTION_MAX_PARTICIPANTS,
         initial: snapshot
       });
     }
@@ -139,9 +257,22 @@ export class SessionManager {
     engine.addListener('message.sent', async (event) => {
       this.bus.emitGateway('message.sent', event, event.sessionId);
     });
+
+    engine.addListener('message.interaction', async (event) => {
+      this.bus.emitGateway('message.interaction', event, event.sessionId);
+    });
+
+    engine.addListener('group.updated', async (event: any) => {
+      this.bus.emitGateway('group.updated', event, event?.sessionId);
+    });
+
+    engine.addListener('group.participants.updated', async (event: any) => {
+      this.bus.emitGateway('group.participants.updated', event, event?.sessionId);
+    });
   }
 
   private requireEngine(id: string): MessagingEngine {
+    assertValidSessionId(id);
     const engine = this.engines.get(id);
     if (!engine) throw new Error(`Session ${id} is not running. Start it first.`);
     return engine;

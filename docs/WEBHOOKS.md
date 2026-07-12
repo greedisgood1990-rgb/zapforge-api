@@ -1,80 +1,71 @@
 # Webhooks
 
-ZapForge envia webhooks para eventos internos importantes.
+O ZapForge envia eventos HTTP POST assinados com HMAC SHA-256.
 
 ## Eventos
 
-| Evento | Quando dispara |
-|---|---|
-| `session.updated` | estado da sessão mudou |
-| `message.received` | uma mensagem chegou |
-| `message.sent` | uma mensagem foi enviada pela API |
-
-Use `events: ["*"]` para receber todos.
+- `session.updated`
+- `message.received`
+- `message.sent`
+- `message.interaction`
+- `group.updated`
+- `group.participants.updated`
 
 ## Headers
 
-```http
-content-type: application/json
-x-zapforge-event: message.received
-x-zapforge-delivery: <event-id>
-x-zapforge-signature: sha256=<assinatura>
+```txt
+x-zapforge-event: message.interaction
+x-zapforge-delivery: delivery-id
+x-zapforge-signature: sha256=<hmac>
 ```
 
-## Validação da assinatura
+## Assinatura
 
-Node.js:
+A assinatura é calculada sobre o corpo JSON bruto:
 
-```js
-import crypto from 'node:crypto';
-
-function isValid(secret, rawBody, signatureHeader) {
-  const expected = 'sha256=' + crypto
-    .createHmac('sha256', secret)
-    .update(rawBody)
-    .digest('hex');
-
-  return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signatureHeader));
-}
+```txt
+HMAC_SHA256(webhook_secret, raw_body)
 ```
 
-## Payload base
+## Cadastrar
+
+```bash
+curl -X POST http://localhost:2785/v1/webhooks \
+  -H "x-api-key: change-this-super-secret-key" \
+  -H "content-type: application/json" \
+  -d '{
+    "url":"https://example.com/webhooks/zapforge",
+    "events":["message.interaction","group.participants.updated"]
+  }'
+```
+
+## Interação
 
 ```json
 {
-  "id": "delivery-id",
-  "event": "message.received",
-  "timestamp": "2026-07-08T12:00:00.000Z",
-  "sessionId": "default",
-  "payload": {}
-}
-```
-
-## Exemplo: `message.received`
-
-```json
-{
-  "id": "delivery-id",
-  "event": "message.received",
-  "timestamp": "2026-07-08T12:00:00.000Z",
+  "event": "message.interaction",
   "sessionId": "default",
   "payload": {
-    "id": "ABC123",
-    "sessionId": "default",
-    "from": "5599999999999@s.whatsapp.net",
-    "fromMe": false,
-    "pushName": "Cliente",
-    "type": "conversation",
-    "text": "Oi, quero atendimento",
-    "timestamp": "2026-07-08T12:00:00.000Z"
+    "from": "5511999999999@s.whatsapp.net",
+    "interaction": {
+      "type": "native_flow",
+      "id": "confirm",
+      "title": "Confirmar"
+    }
   }
 }
 ```
 
-## Boas práticas
+## Participantes
 
-- Retorne HTTP 2xx rapidamente.
-- Processe tarefas pesadas em fila.
-- Valide `x-zapforge-signature`.
-- Faça idempotência usando `x-zapforge-delivery`.
-- Não confie em payload sem assinatura válida.
+```json
+{
+  "event": "group.participants.updated",
+  "sessionId": "default",
+  "payload": {
+    "id": "120363000000000000@g.us",
+    "action": "promote",
+    "participants": ["5511999999999@s.whatsapp.net"]
+  }
+}
+```

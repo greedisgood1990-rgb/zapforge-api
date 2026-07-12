@@ -1,7 +1,7 @@
 {
   "name": "zapforge-api",
-  "version": "1.0.0",
-  "description": "Self-hosted, open-source WhatsApp-style messaging gateway with multi-session REST API, webhooks and Baileys engine adapter.",
+  "version": "1.1.0",
+  "description": "Self-hosted open-source WhatsApp gateway with multi-session REST API, group management, mentions, interactive messages, signed webhooks and Baileys.",
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
@@ -18,7 +18,11 @@
     "webhooks",
     "multi-session",
     "rest-api",
-    "open-source"
+    "open-source",
+    "whatsapp-groups",
+    "interactive-messages",
+    "polls",
+    "buttons"
   ],
   "author": "Renato Gomes",
   "license": "MIT",
@@ -33,7 +37,7 @@
     "@fastify/swagger": "^9.4.2",
     "@fastify/swagger-ui": "^5.2.2",
     "@fastify/websocket": "^11.0.1",
-    "@whiskeysockets/baileys": "^6.7.18",
+    "@whiskeysockets/baileys": "^6.7.23",
     "dotenv": "^16.4.7",
     "fastify": "^5.2.1",
     "nanoid": "^5.0.9",

@@ -22,7 +22,9 @@ const schema = z.object({
   DEFAULT_ENGINE: z.enum(['baileys']).default('baileys'),
   APP_BROWSER_NAME: z.string().default('ZapForge'),
   RESPONSIBLE_MODE: z.coerce.boolean().default(true),
-  MAX_MESSAGES_PER_MINUTE_PER_SESSION: z.coerce.number().int().positive().default(60)
+  MAX_MESSAGES_PER_MINUTE_PER_SESSION: z.coerce.number().int().positive().default(60),
+  GROUP_MENTION_MAX_PARTICIPANTS: z.coerce.number().int().positive().max(4096).default(1024),
+  GROUP_PARTICIPANT_BATCH_MAX: z.coerce.number().int().positive().max(1000).default(100)
 });
 
 export const config = schema.parse(process.env);

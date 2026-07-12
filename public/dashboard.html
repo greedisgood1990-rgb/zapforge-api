@@ -27,7 +27,7 @@
   <section class="hero">
     <p>Self-hosted • Multi-session • REST • Webhooks assinados • Baileys engine</p>
     <h1>ZapForge API</h1>
-    <p>Dashboard mínimo para testar sessões, QR Code, envio de texto e webhooks. Para documentação completa, abra <a href="/docs">/docs</a>.</p>
+    <p>Dashboard v1.1 para testar sessões, QR Code, texto, grupos, menções, botões e webhooks. Para documentação completa, abra <a href="/docs">/docs</a>.</p>
     <input id="apiKey" placeholder="Cole sua API_KEY aqui" />
   </section>
 
@@ -56,8 +56,25 @@
       <pre id="sendOut"></pre>
     </div>
 
+
     <div class="card">
-      <h2>4. Webhook</h2>
+      <h2>4. Grupos e @todos</h2>
+      <input id="groupId" placeholder="120363000000000000@g.us" />
+      <textarea id="groupBody" rows="3" placeholder="Mensagem para mencionar todos"></textarea>
+      <button onclick="mentionAll()">Enviar com @todos</button>
+      <button class="secondary" onclick="loadGroups()">Listar grupos</button>
+      <pre id="groupOut"></pre>
+    </div>
+
+    <div class="card">
+      <h2>5. Botões</h2>
+      <input id="buttonTo" placeholder="5599999999999" />
+      <textarea id="buttonBody" rows="3" placeholder="Escolha uma opção"></textarea>
+      <button onclick="sendButtons()">Enviar Sim / Não</button>
+      <pre id="buttonOut"></pre>
+    </div>
+    <div class="card">
+      <h2>6. Webhook</h2>
       <input id="webhookUrl" placeholder="https://seusite.com/webhook" />
       <button onclick="createWebhook()">Cadastrar webhook</button>
       <button class="secondary" onclick="loadWebhooks()">Listar</button>
@@ -102,8 +119,44 @@
     catch (e) { print('sendOut', e); }
   }
 
+
+  async function loadGroups() {
+    try { print('groupOut', await request(`/v1/sessions/${$('sessionId').value}/groups`)); }
+    catch (e) { print('groupOut', e); }
+  }
+
+  async function mentionAll() {
+    try {
+      print('groupOut', await request('/v1/messages/group-mention', {
+        method: 'POST',
+        body: JSON.stringify({
+          sessionId: $('sessionId').value,
+          groupId: $('groupId').value,
+          body: $('groupBody').value,
+          mentionAll: true
+        })
+      }));
+    } catch (e) { print('groupOut', e); }
+  }
+
+  async function sendButtons() {
+    try {
+      print('buttonOut', await request('/v1/messages/buttons', {
+        method: 'POST',
+        body: JSON.stringify({
+          sessionId: $('sessionId').value,
+          to: $('buttonTo').value,
+          body: $('buttonBody').value,
+          buttons: [
+            { type: 'reply', id: 'yes', text: 'Sim' },
+            { type: 'reply', id: 'no', text: 'Não' }
+          ]
+        })
+      }));
+    } catch (e) { print('buttonOut', e); }
+  }
   async function createWebhook() {
-    try { print('webhookOut', await request('/v1/webhooks', { method: 'POST', body: JSON.stringify({ url: $('webhookUrl').value, events: ['message.received', 'session.updated'] }) })); }
+    try { print('webhookOut', await request('/v1/webhooks', { method: 'POST', body: JSON.stringify({ url: $('webhookUrl').value, events: ['message.received', 'message.interaction', 'group.updated', 'group.participants.updated', 'session.updated'] }) })); }
     catch (e) { print('webhookOut', e); }
   }
 
