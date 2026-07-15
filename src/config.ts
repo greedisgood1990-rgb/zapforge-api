@@ -36,7 +36,9 @@ const schema = z.object({
   RECONNECT_MAX_ATTEMPTS: z.coerce.number().int().min(0).max(20).default(6),
   RECONNECT_JITTER_MS: z.coerce.number().int().min(0).max(30_000).default(3_000),
   INTERACTIVE_MESSAGE_FALLBACK: z.coerce.boolean().default(true),
-  INTERACTIVE_MAX_BUTTONS: z.coerce.number().int().min(1).max(10).default(3)
+  INTERACTIVE_MAX_BUTTONS: z.coerce.number().int().min(1).max(10).default(3),
+  INTERACTIVE_MAX_LIST_ROWS: z.coerce.number().int().min(1).max(100).default(10),
+  MESSAGE_RETRY_CACHE_MAX: z.coerce.number().int().min(50).max(10_000).default(500)
 });
 
 const parsed = schema.parse(process.env);

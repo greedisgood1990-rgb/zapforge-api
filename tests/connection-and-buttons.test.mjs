@@ -18,7 +18,9 @@ const options = {
   reconnectMaxAttempts: 6,
   reconnectJitterMs: 0,
   interactiveMessageFallback: true,
-  interactiveMaxButtons: 3
+  interactiveMaxButtons: 3,
+  interactiveMaxListRows: 10,
+  messageRetryCacheMax: 50
 };
 
 test('reuses a still-valid pairing code without another provider request', async () => {
@@ -39,6 +41,73 @@ test('reuses a still-valid pairing code without another provider request', async
   assert.equal(first.formattedCode, '1234-5678');
   assert.equal(second.reused, true);
   assert.equal(providerCalls, 1);
+  await engine.stop();
+});
+
+
+test('persists pairing throttling metadata without storing the pairing code', async () => {
+  const engine = new BaileysEngine(options);
+  engine.socket = { requestPairingCode: async () => '87654321' };
+  engine.socketCreatedAt = Date.now() - 10_000;
+
+  const result = await engine.requestPairingCode('5511999999999');
+  const policy = engine.snapshot().metadata.pairingPolicy;
+
+  assert.equal(result.code, '87654321');
+  assert.equal(Array.isArray(policy.attempts), true);
+  assert.equal(policy.attempts.length, 1);
+  assert.equal(JSON.stringify(engine.snapshot().metadata).includes('87654321'), false);
+  await engine.stop();
+});
+
+test('reconnects on restartRequired even before creds.update marks the session registered', async () => {
+  const engine = new BaileysEngine({ ...options, reconnectBaseDelayMs: 1, reconnectMaxDelayMs: 1 });
+  engine.baileys = { DisconnectReason: { loggedOut: 401, restartRequired: 515 } };
+  engine.socket = { ev: { removeAllListeners() {} } };
+  engine.connectionGeneration = 7;
+  let scheduled = false;
+  engine.scheduleReconnect = (_status, allowUnregistered) => {
+    scheduled = allowUnregistered === true;
+  };
+
+  await engine.handleConnectionUpdate(
+    { connection: 'close', lastDisconnect: { error: { output: { statusCode: 515 } } } },
+    7
+  );
+
+  assert.equal(scheduled, true);
+});
+
+test('uses text fallback for lists when native-flow generation is unavailable', async () => {
+  const engine = new BaileysEngine(options);
+  engine.session.state = 'connected';
+  let fallbackPayload;
+  engine.socket = {
+    user: { id: '5511000000000@s.whatsapp.net' },
+    sendMessage: async (_to, payload) => {
+      fallbackPayload = payload;
+      return { key: { id: 'list-fallback-1' }, message: payload };
+    }
+  };
+  engine.baileys = {};
+
+  const result = await engine.sendList({
+    sessionId: 'test-session',
+    to: '5511888888888',
+    body: 'Escolha:',
+    buttonText: 'Abrir',
+    sections: [{
+      title: 'Opções',
+      rows: [
+        { id: 'one', title: 'Primeira' },
+        { id: 'two', title: 'Segunda' }
+      ]
+    }]
+  });
+
+  assert.equal(result.deliveryMode, 'text_fallback');
+  assert.match(fallbackPayload.text, /Primeira \[one\]/);
+  assert.match(fallbackPayload.text, /Segunda \[two\]/);
   await engine.stop();
 });
 

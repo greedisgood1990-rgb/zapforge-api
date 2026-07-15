@@ -25,6 +25,20 @@ The default limit is three buttons. Configure it with `INTERACTIVE_MAX_BUTTONS`,
 
 Reply IDs must be unique within the message.
 
+## Lists endpoint
+
+```http
+POST /v1/messages/list
+```
+
+List row IDs must be non-empty and unique across the complete message. The default total-row limit is ten and is configured with `INTERACTIVE_MAX_LIST_ROWS`.
+
+Lists use the same fallback controls as buttons:
+
+- `fallbackText` replaces the generated plain-text representation;
+- `disableFallback=true` propagates the native-flow error instead of sending text;
+- successful fallback responses return `deliveryMode=text_fallback`.
+
 ## Native-flow envelope
 
 ZapForge builds an `InteractiveMessage` with:

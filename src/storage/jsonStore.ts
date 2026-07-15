@@ -14,6 +14,7 @@ export class JsonStore {
   private filePath: string;
   private data: PersistedStore = structuredClone(emptyStore);
   private ready = false;
+  private flushQueue: Promise<void> = Promise.resolve();
 
   constructor(filePath: string) {
     this.filePath = filePath;
@@ -88,8 +89,19 @@ export class JsonStore {
     if (!this.ready) throw new Error('JsonStore not initialized. Call init() first.');
   }
 
-  private async flush(): Promise<void> {
-    await fs.mkdir(path.dirname(this.filePath), { recursive: true });
-    await fs.writeFile(this.filePath, JSON.stringify(this.data, null, 2));
+  private flush(): Promise<void> {
+    const payload = JSON.stringify(this.data, null, 2);
+    const directory = path.dirname(this.filePath);
+    const temporary = `${this.filePath}.tmp`;
+
+    this.flushQueue = this.flushQueue
+      .catch(() => undefined)
+      .then(async () => {
+        await fs.mkdir(directory, { recursive: true });
+        await fs.writeFile(temporary, payload, { encoding: 'utf8', mode: 0o600 });
+        await fs.rename(temporary, this.filePath);
+      });
+
+    return this.flushQueue;
   }
 }

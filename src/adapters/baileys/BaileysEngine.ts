@@ -42,6 +42,8 @@ export interface BaileysEngineOptions {
   reconnectJitterMs: number;
   interactiveMessageFallback: boolean;
   interactiveMaxButtons: number;
+  interactiveMaxListRows: number;
+  messageRetryCacheMax: number;
   initial?: Partial<SessionSnapshot>;
 }
 
@@ -75,6 +77,7 @@ export class BaileysEngine implements MessagingEngine {
   private lastPairingResult?: PairingCodeResult;
   private pairingModeActive = false;
   private pairingExpiryTimer?: ReturnType<typeof setTimeout>;
+  private readonly messageCache = new Map<string, { message: unknown; storedAt: number }>();
 
   constructor(options: BaileysEngineOptions) {
     const now = nowIso();
@@ -91,6 +94,14 @@ export class BaileysEngine implements MessagingEngine {
       updatedAt: now,
       metadata: options.initial?.metadata || {}
     };
+
+    const persistedPolicy = readPersistedPairingPolicy(this.session.metadata);
+    const nowMs = Date.now();
+    this.pairingAttempts = persistedPolicy.attempts.filter(
+      (attemptAt) => nowMs - attemptAt < this.options.pairingCodeWindowMs
+    );
+    this.pairingLockedUntil = persistedPolicy.lockedUntil;
+    this.lastPairingAt = persistedPolicy.lastAttemptAt;
   }
 
   async start(): Promise<SessionSnapshot> {
@@ -118,6 +129,12 @@ export class BaileysEngine implements MessagingEngine {
     const Browsers = baileys.Browsers;
     const { state, saveCreds } = await useMultiFileAuthState(this.authPath);
     this.registered = Boolean(state?.creds?.registered);
+    this.update({
+      metadata: {
+        ...this.session.metadata,
+        registered: this.registered
+      }
+    });
 
     const logger = createSilentBaileysLogger();
     if (typeof baileys.makeCacheableSignalKeyStore === 'function') {
@@ -145,24 +162,54 @@ export class BaileysEngine implements MessagingEngine {
       defaultQueryTimeoutMs: 60_000,
       keepAliveIntervalMs: 25_000,
       retryRequestDelayMs: 1_000,
+      getMessage: async (key: any) => {
+        if (!key?.id) return undefined;
+        return this.messageCache.get(key.id)?.message;
+      },
       logger
     });
 
     this.socket = socket;
     this.socketCreatedAt = Date.now();
 
-    socket.ev.on('creds.update', async () => {
+    socket.ev.on('creds.update', () => {
       this.registered = Boolean(state?.creds?.registered);
-      await saveCreds();
+      this.update({
+        metadata: {
+          ...this.session.metadata,
+          registered: this.registered
+        }
+      });
+      void saveCreds().catch((error: unknown) => {
+        this.update({
+          metadata: {
+            ...this.session.metadata,
+            credentialSaveFailedAt: nowIso(),
+            credentialSaveFailure: error instanceof Error ? error.message : String(error)
+          }
+        });
+      });
     });
 
     socket.ev.on('connection.update', (update: any) => {
-      void this.handleConnectionUpdate(update, generation);
+      void this.handleConnectionUpdate(update, generation).catch((error: unknown) => {
+        if (generation !== this.connectionGeneration) return;
+        this.update({
+          state: 'failed',
+          qr: null,
+          metadata: {
+            ...this.session.metadata,
+            connectionFailureAt: nowIso(),
+            connectionFailure: error instanceof Error ? error.message : String(error)
+          }
+        });
+      });
     });
 
     socket.ev.on('messages.upsert', (upsert: any) => {
       if (generation !== this.connectionGeneration) return;
       for (const message of upsert.messages || []) {
+        this.rememberMessage(message);
         const interaction = extractInteraction(message);
         const event: IncomingMessageEvent = {
           id: message?.key?.id || nanoid(),
@@ -231,7 +278,10 @@ export class BaileysEngine implements MessagingEngine {
       this.lastPairingResult = undefined;
       this.pairingModeActive = false;
       this.cancelPairingExpiry();
+      this.resetPairingPolicy();
       const me = this.socket?.user || {};
+      const metadata = { ...this.session.metadata };
+      delete metadata.pairingPolicy;
       this.update({
         state: 'connected',
         qr: null,
@@ -239,7 +289,8 @@ export class BaileysEngine implements MessagingEngine {
         name: me?.name || me?.verifiedName || null,
         lastSeenAt: nowIso(),
         metadata: {
-          ...this.session.metadata,
+          ...metadata,
+          registered: true,
           connectedAt: nowIso(),
           reconnectAttempt: 0
         }
@@ -251,7 +302,9 @@ export class BaileysEngine implements MessagingEngine {
 
     const statusCode = lastDisconnect?.error?.output?.statusCode;
     const loggedOutCode = this.baileys?.DisconnectReason?.loggedOut;
+    const restartRequiredCode = this.baileys?.DisconnectReason?.restartRequired;
     const loggedOut = loggedOutCode !== undefined && statusCode === loggedOutCode;
+    const restartRequired = restartRequiredCode !== undefined && statusCode === restartRequiredCode;
 
     this.detachSocketListeners(this.socket);
     this.socket = undefined;
@@ -265,8 +318,29 @@ export class BaileysEngine implements MessagingEngine {
       this.registered = false;
       this.pairingModeActive = false;
       this.cancelPairingExpiry();
-      this.update({ state: 'logged_out', qr: null });
+      this.resetPairingPolicy();
+      const metadata = { ...this.session.metadata };
+      delete metadata.pairingPolicy;
+      this.update({
+        state: 'logged_out',
+        qr: null,
+        metadata: {
+          ...metadata,
+          registered: false,
+          disconnectedAt: nowIso(),
+          disconnectReason: 'logged_out'
+        }
+      });
       await this.clearAuthState();
+      return;
+    }
+
+    // WhatsApp closes the first socket with restartRequired after a successful QR or pairing-code link.
+    // Reconnect even if creds.update has not yet flipped the local registered flag.
+    if (restartRequired) {
+      this.pairingModeActive = false;
+      this.cancelPairingExpiry();
+      this.scheduleReconnect(statusCode, true);
       return;
     }
 
@@ -277,6 +351,7 @@ export class BaileysEngine implements MessagingEngine {
         qr: null,
         metadata: {
           ...this.session.metadata,
+          registered: false,
           disconnectReason: 'unregistered_connection_closed',
           disconnectedAt: nowIso()
         }
@@ -287,8 +362,9 @@ export class BaileysEngine implements MessagingEngine {
     this.scheduleReconnect(statusCode);
   }
 
-  private scheduleReconnect(statusCode?: number): void {
+  private scheduleReconnect(statusCode?: number, allowUnregistered = false): void {
     if (this.reconnectTimer || this.intentionalClose) return;
+    if (!this.registered && !allowUnregistered) return;
     if (this.reconnectAttempts >= this.options.reconnectMaxAttempts) {
       this.update({
         state: 'failed',
@@ -340,6 +416,7 @@ export class BaileysEngine implements MessagingEngine {
     this.cancelReconnect();
     this.cancelPairingExpiry();
     this.pairingModeActive = false;
+    this.lastPairingResult = undefined;
     this.teardownSocket();
     this.update({ state: 'disconnected', qr: null });
   }
@@ -357,8 +434,22 @@ export class BaileysEngine implements MessagingEngine {
     this.lastPairingResult = undefined;
     this.pairingModeActive = false;
     this.cancelPairingExpiry();
+    this.resetPairingPolicy();
     await this.clearAuthState();
-    this.update({ state: 'logged_out', qr: null, phone: null, name: null });
+    const metadata = { ...this.session.metadata };
+    delete metadata.pairingPolicy;
+    this.update({
+      state: 'logged_out',
+      qr: null,
+      phone: null,
+      name: null,
+      metadata: {
+        ...metadata,
+        registered: false,
+        disconnectedAt: nowIso(),
+        disconnectReason: 'logout_requested'
+      }
+    });
   }
 
   snapshot(): SessionSnapshot {
@@ -390,6 +481,7 @@ export class BaileysEngine implements MessagingEngine {
     }
 
     if (now < this.pairingLockedUntil) {
+      this.persistPairingPolicy();
       const retryAfter = Math.ceil((this.pairingLockedUntil - now) / 1000);
       throw tooManyRequests(
         'Pairing requests are temporarily locked for this session.',
@@ -404,6 +496,7 @@ export class BaileysEngine implements MessagingEngine {
     );
     if (this.pairingAttempts.length >= this.options.pairingCodeMaxAttempts) {
       this.pairingLockedUntil = now + this.options.pairingCodeLockoutMs;
+      this.persistPairingPolicy();
       const retryAfter = Math.ceil(this.options.pairingCodeLockoutMs / 1000);
       throw tooManyRequests(
         'Pairing attempt limit reached for this session.',
@@ -425,6 +518,7 @@ export class BaileysEngine implements MessagingEngine {
 
     this.lastPairingAt = now;
     this.pairingAttempts.push(now);
+    this.persistPairingPolicy();
     this.pairingPhoneInFlight = phone;
     this.pairingInFlight = this.generatePairingCode(phone).finally(() => {
       this.pairingInFlight = undefined;
@@ -687,6 +781,20 @@ export class BaileysEngine implements MessagingEngine {
   }
 
   async sendList(input: OutgoingListMessage): Promise<SentMessageResult> {
+    const rows = input.sections.flatMap((section) => section.rows);
+    if (!rows.length) throw new ApiError('At least one list row is required.', 400, 'invalid_list');
+    if (rows.length > this.options.interactiveMaxListRows) {
+      throw new ApiError(
+        `List row limit exceeded. Maximum: ${this.options.interactiveMaxListRows}.`,
+        400,
+        'list_row_limit_exceeded'
+      );
+    }
+    const rowIds = rows.map((row) => row.id);
+    if (rowIds.some((id) => !id?.trim()) || new Set(rowIds).size !== rowIds.length) {
+      throw new ApiError('List row ids must be non-empty and unique.', 400, 'invalid_list_row_id');
+    }
+
     const sections = input.sections.map((section) => ({
       title: section.title,
       rows: section.rows.map((row) => ({
@@ -696,10 +804,24 @@ export class BaileysEngine implements MessagingEngine {
         description: row.description || ''
       }))
     }));
-    return this.sendNativeFlow(input.to, input.body, input.title, input.footer, [{
-      name: 'single_select',
-      buttonParamsJson: JSON.stringify({ title: input.buttonText, sections })
-    }]);
+
+    try {
+      const result = await this.sendNativeFlow(input.to, input.body, input.title, input.footer, [{
+        name: 'single_select',
+        buttonParamsJson: JSON.stringify({ title: input.buttonText, sections })
+      }]);
+      result.deliveryMode = 'native_flow';
+      return result;
+    } catch (error) {
+      if (input.disableFallback || !this.options.interactiveMessageFallback) throw error;
+      const fallbackText = input.fallbackText || buildListFallbackText(input);
+      const result = await this.sendText({ sessionId: input.sessionId, to: input.to, body: fallbackText });
+      result.deliveryMode = 'text_fallback';
+      result.warnings = [
+        `Native-flow list relay failed; a text fallback was sent instead: ${error instanceof Error ? error.message : String(error)}`
+      ];
+      return result;
+    }
   }
 
   async sendPoll(input: OutgoingPollMessage): Promise<SentMessageResult> {
@@ -826,31 +948,41 @@ export class BaileysEngine implements MessagingEngine {
 
   private nativeButton(button: InteractiveButton): { name: string; buttonParamsJson: string } {
     const type = button.type || 'reply';
+    const text = String(button.text || '').trim();
+    if (!text) throw new ApiError('Button text is required.', 400, 'invalid_button_text');
+
     if (type === 'reply') {
-      if (!button.id) throw new Error('Reply button requires id.');
+      const id = String(button.id || '').trim();
+      if (!id || id.length > 256) {
+        throw new ApiError('Reply button id must contain 1 to 256 characters.', 400, 'invalid_button_id');
+      }
       return {
         name: 'quick_reply',
-        buttonParamsJson: JSON.stringify({ display_text: button.text, id: button.id })
+        buttonParamsJson: JSON.stringify({ display_text: text, id })
       };
     }
     if (type === 'url') {
-      if (!button.url) throw new Error('URL button requires url.');
+      const url = normalizeInteractiveUrl(button.url);
       return {
         name: 'cta_url',
-        buttonParamsJson: JSON.stringify({ display_text: button.text, url: button.url, merchant_url: button.url })
+        buttonParamsJson: JSON.stringify({ display_text: text, url, merchant_url: url })
       };
     }
     if (type === 'call') {
-      if (!button.phone) throw new Error('Call button requires phone.');
+      const phone = normalizeCallButtonPhone(button.phone);
       return {
         name: 'cta_call',
-        buttonParamsJson: JSON.stringify({ display_text: button.text, phone_number: button.phone })
+        buttonParamsJson: JSON.stringify({ display_text: text, phone_number: phone })
       };
     }
-    if (!button.value) throw new Error('Copy button requires value.');
+
+    const value = String(button.value || '').trim();
+    if (!value || value.length > 1024) {
+      throw new ApiError('Copy button value must contain 1 to 1024 characters.', 400, 'invalid_copy_value');
+    }
     return {
       name: 'cta_copy',
-      buttonParamsJson: JSON.stringify({ display_text: button.text, copy_code: button.value })
+      buttonParamsJson: JSON.stringify({ display_text: text, copy_code: value })
     };
   }
 
@@ -898,6 +1030,7 @@ export class BaileysEngine implements MessagingEngine {
   }
 
   private sentResult(to: string, raw: any): SentMessageResult {
+    this.rememberMessage(raw);
     const result: SentMessageResult = {
       id: raw?.key?.id || nanoid(),
       sessionId: this.session.id,
@@ -909,6 +1042,39 @@ export class BaileysEngine implements MessagingEngine {
     };
     this.emitter.emit('message.sent', result);
     return result;
+  }
+
+  private rememberMessage(raw: any): void {
+    const id = raw?.key?.id;
+    const message = raw?.message;
+    if (!id || !message) return;
+
+    this.messageCache.delete(id);
+    this.messageCache.set(id, { message, storedAt: Date.now() });
+    while (this.messageCache.size > this.options.messageRetryCacheMax) {
+      const oldest = this.messageCache.keys().next().value;
+      if (!oldest) break;
+      this.messageCache.delete(oldest);
+    }
+  }
+
+  private persistPairingPolicy(): void {
+    this.update({
+      metadata: {
+        ...this.session.metadata,
+        pairingPolicy: {
+          attempts: this.pairingAttempts,
+          lockedUntil: this.pairingLockedUntil,
+          lastAttemptAt: this.lastPairingAt
+        }
+      }
+    });
+  }
+
+  private resetPairingPolicy(): void {
+    this.pairingAttempts = [];
+    this.pairingLockedUntil = 0;
+    this.lastPairingAt = 0;
   }
 
   private async resolveMedia(input: OutgoingMediaMessage): Promise<Buffer | { url: string }> {
@@ -964,6 +1130,28 @@ function formatPairingCode(code: string): string {
   return code.match(/.{1,4}/g)?.join('-') || code;
 }
 
+function normalizeInteractiveUrl(input: string | undefined): string {
+  const value = String(input || '').trim();
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new ApiError('URL button requires a valid absolute URL.', 400, 'invalid_button_url');
+  }
+  if (!['http:', 'https:'].includes(url.protocol)) {
+    throw new ApiError('URL button only supports http and https.', 400, 'invalid_button_url');
+  }
+  return url.toString();
+}
+
+function normalizeCallButtonPhone(input: string | undefined): string {
+  const digits = String(input || '').replace(/\D/g, '');
+  if (digits.length < 8 || digits.length > 15) {
+    throw new ApiError('Call button phone must contain 8 to 15 digits including country code.', 400, 'invalid_button_phone');
+  }
+  return `+${digits}`;
+}
+
 function buildButtonFallbackText(input: OutgoingButtonsMessage): string {
   const lines = input.buttons.map((button, index) => {
     const type = button.type || 'reply';
@@ -973,6 +1161,31 @@ function buildButtonFallbackText(input: OutgoingButtonsMessage): string {
     return `${index + 1}. ${button.text} [${button.id}]`;
   });
   return [input.title, input.body, '', ...lines, input.footer].filter(Boolean).join('\n');
+}
+
+function buildListFallbackText(input: OutgoingListMessage): string {
+  const rows = input.sections.flatMap((section) =>
+    section.rows.map((row) => `${row.title}${row.description ? ` — ${row.description}` : ''} [${row.id}]`)
+  );
+  return [input.title, input.body, '', ...rows, input.footer].filter(Boolean).join('\n');
+}
+
+function readPersistedPairingPolicy(metadata: Record<string, unknown> | undefined): {
+  attempts: number[];
+  lockedUntil: number;
+  lastAttemptAt: number;
+} {
+  const raw = metadata?.pairingPolicy;
+  if (!raw || typeof raw !== 'object') return { attempts: [], lockedUntil: 0, lastAttemptAt: 0 };
+  const policy = raw as Record<string, unknown>;
+  const attempts = Array.isArray(policy.attempts)
+    ? policy.attempts.filter((value): value is number => typeof value === 'number' && Number.isFinite(value))
+    : [];
+  return {
+    attempts,
+    lockedUntil: typeof policy.lockedUntil === 'number' && Number.isFinite(policy.lockedUntil) ? policy.lockedUntil : 0,
+    lastAttemptAt: typeof policy.lastAttemptAt === 'number' && Number.isFinite(policy.lastAttemptAt) ? policy.lastAttemptAt : 0
+  };
 }
 
 function normalizeGroupJid(input: string): string {

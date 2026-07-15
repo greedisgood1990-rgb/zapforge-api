@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: ZapForge API
-  version: 1.2.0
+  version: 1.2.1
   description: Self-hosted WhatsApp gateway with controlled session lifecycle, QR and pairing-code authentication, group management,
     interactive messages and signed webhooks.
 servers:
@@ -343,7 +343,7 @@ paths:
       tags:
       - Messages
       - Interactive
-      summary: Send a single-select list
+      summary: Send a single-select list with optional text fallback
       requestBody:
         required: true
         content:
@@ -369,6 +369,12 @@ paths:
                   type: string
                 buttonText:
                   type: string
+                fallbackText:
+                  type: string
+                  description: Optional text sent when native-flow generation or relay fails.
+                disableFallback:
+                  type: boolean
+                  default: false
                 sections:
                   type: array
                   items:
