@@ -96,9 +96,9 @@ export class BaileysEngine implements MessagingEngine {
     };
 
     const persistedPolicy = readPersistedPairingPolicy(this.session.metadata);
-    const now = Date.now();
+    const nowMs = Date.now();
     this.pairingAttempts = persistedPolicy.attempts.filter(
-      (attemptAt) => now - attemptAt < this.options.pairingCodeWindowMs
+      (attemptAt) => nowMs - attemptAt < this.options.pairingCodeWindowMs
     );
     this.pairingLockedUntil = persistedPolicy.lockedUntil;
     this.lastPairingAt = persistedPolicy.lastAttemptAt;

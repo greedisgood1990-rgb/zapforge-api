@@ -6,6 +6,43 @@
 > zapforge-api@1.2.1 build
 > tsc -p tsconfig.json
 
-src/adapters/baileys/BaileysEngine.ts(83,11): error TS2451: Cannot redeclare block-scoped variable 'now'.
-src/adapters/baileys/BaileysEngine.ts(99,11): error TS2451: Cannot redeclare block-scoped variable 'now'.
-src/adapters/baileys/BaileysEngine.ts(101,22): error TS2362: The left-hand side of an arithmetic operation must be of type 'any', 'number', 'bigint' or an enum type.
+TAP version 13
+# Subtest: reuses a still-valid pairing code without another provider request
+ok 1 - reuses a still-valid pairing code without another provider request
+  ---
+  duration_ms: 3.009948
+  type: 'test'
+  ...
+# Subtest: persists pairing throttling metadata without storing the pairing code
+ok 2 - persists pairing throttling metadata without storing the pairing code
+  ---
+  duration_ms: 0.732733
+  type: 'test'
+  ...
+# Subtest: reconnects on restartRequired even before creds.update marks the session registered
+ok 3 - reconnects on restartRequired even before creds.update marks the session registered
+  ---
+  duration_ms: 0.393818
+  type: 'test'
+  ...
+# Subtest: uses text fallback for lists when native-flow generation is unavailable
+ok 4 - uses text fallback for lists when native-flow generation is unavailable
+  ---
+  duration_ms: 1.416303
+  type: 'test'
+  ...
+# Subtest: uses text fallback when native-flow generation is unavailable
+ok 5 - uses text fallback when native-flow generation is unavailable
+  ---
+  duration_ms: 0.883475
+  type: 'test'
+  ...
+1..5
+# tests 5
+# suites 0
+# pass 5
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 89.152254
