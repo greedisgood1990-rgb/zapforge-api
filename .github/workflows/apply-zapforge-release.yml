@@ -17,23 +17,33 @@ jobs:
           ref: ${{ github.event.pull_request.head.ref }}
           fetch-depth: 0
 
-      - name: Assemble release
+      - name: Check staged release
+        id: staged
         run: |
-          test -d .zapforge-release
+          if [ -d .zapforge-release ]; then
+            echo "apply=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "apply=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Assemble release
+        if: steps.staged.outputs.apply == 'true'
+        run: |
           cat .zapforge-release/part-* > /tmp/zapforge-v1.2.zip
           mkdir -p /tmp/zapforge-release
           unzip -q /tmp/zapforge-v1.2.zip -d /tmp/zapforge-release
 
       - name: Apply release
+        if: steps.staged.outputs.apply == 'true'
         run: |
           rsync -a --delete \
             --exclude='.git/' \
-            --exclude='.github/workflows/apply-zapforge-release.yml' \
+            --exclude='.github/workflows/' \
             /tmp/zapforge-release/ ./
           rm -rf .zapforge-release
-          rm -f .github/workflows/apply-zapforge-release.yml
 
       - name: Commit release
+        if: steps.staged.outputs.apply == 'true'
         run: |
           git config user.name "zapforge-release"
           git config user.email "actions@users.noreply.github.com"
