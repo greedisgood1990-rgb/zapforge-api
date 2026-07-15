@@ -1,13 +1,13 @@
 {
   "info": {
-    "name": "ZapForge API 1.1",
-    "description": "Groups, mentions, buttons, lists and polls.",
+    "name": "ZapForge API 1.2",
+    "description": "Session lifecycle, QR and pairing code, groups, mentions, interactive messages and webhooks.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
     {
       "key": "baseUrl",
-      "value": "http://localhost:2785"
+      "value": "http://localhost:9467"
     },
     {
       "key": "apiKey",
@@ -56,6 +56,27 @@
             "body": {
               "mode": "raw",
               "raw": "{\n  \"id\": \"{{sessionId}}\",\n  \"engine\": \"baileys\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Request Pairing Code",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}"
+              },
+              {
+                "key": "content-type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/sessions/{{sessionId}}/pairing-code",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phoneNumber\": \"5511999999999\"\n}"
             }
           }
         },

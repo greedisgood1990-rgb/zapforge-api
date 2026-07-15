@@ -5,7 +5,7 @@
 ```bash
 git clone https://github.com/SEU-USUARIO/zapforge-api.git
 cd zapforge-api
-cp .env.example .env
+bash scripts/init-env.sh
 nano .env
 docker compose up -d --build
 ```
@@ -23,7 +23,7 @@ server {
     server_name api.seudominio.com;
 
     location / {
-        proxy_pass http://127.0.0.1:2785;
+        proxy_pass http://127.0.0.1:9467;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;

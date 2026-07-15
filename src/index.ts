@@ -37,7 +37,7 @@ await app.register(swagger, {
     info: {
       title: 'ZapForge API',
       description: 'Self-hosted messaging gateway with REST API, multi-session support and signed webhooks.',
-      version: '1.1.0'
+      version: '1.2.0'
     },
     servers: [{ url: config.PUBLIC_URL }],
     components: {

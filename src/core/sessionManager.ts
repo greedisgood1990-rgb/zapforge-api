@@ -13,6 +13,7 @@ import type {
   OutgoingMediaMessage,
   OutgoingPollMessage,
   OutgoingTextMessage,
+  PairingCodeResult,
   SentMessageResult,
   SessionSnapshot
 } from './types.js';
@@ -38,7 +39,7 @@ export class SessionManager {
     await fs.mkdir(this.config.SESSION_DIR, { recursive: true });
 
     for (const session of this.store.allSessions()) {
-      if (session.state === 'connected' || session.state === 'qr' || session.state === 'connecting' || session.state === 'disconnected') {
+      if (session.state === 'connected' || session.state === 'qr' || session.state === 'pairing' || session.state === 'connecting' || session.state === 'disconnected') {
         await this.start(session.id, session.engine, true);
       }
     }
@@ -58,9 +59,20 @@ export class SessionManager {
     return this.requireEngine(id).capabilities();
   }
 
+  async requestPairingCode(id: string, phoneNumber: string): Promise<PairingCodeResult> {
+    const result = await this.requireEngine(id).requestPairingCode(phoneNumber);
+    await this.store.audit('api', 'session.pairing_code.requested', {
+      id,
+      phoneSuffix: result.maskedPhoneNumber,
+      reused: result.reused,
+      nextAllowedAt: result.nextAllowedAt
+    });
+    return result;
+  }
+
   async start(id: string, engine: EngineName = 'baileys', restore = false): Promise<SessionSnapshot> {
     assertValidSessionId(id);
-    if (this.engines.has(id)) return this.engines.get(id)!.snapshot();
+    if (this.engines.has(id)) return this.engines.get(id)!.start();
 
     const existing = this.store.getSession(id);
     const snapshot: SessionSnapshot = existing || {
@@ -237,6 +249,18 @@ export class SessionManager {
         sessionDir: this.config.SESSION_DIR,
         browserName: this.config.APP_BROWSER_NAME,
         maxMentionParticipants: this.config.GROUP_MENTION_MAX_PARTICIPANTS,
+        pairingCodeCooldownMs: this.config.PAIRING_CODE_COOLDOWN_MS,
+        pairingCodeWindowMs: this.config.PAIRING_CODE_WINDOW_MS,
+        pairingCodeMaxAttempts: this.config.PAIRING_CODE_MAX_ATTEMPTS,
+        pairingCodeLockoutMs: this.config.PAIRING_CODE_LOCKOUT_MS,
+        pairingCodeStabilizationMs: this.config.PAIRING_CODE_STABILIZATION_MS,
+        pairingCodeTtlMs: this.config.PAIRING_CODE_TTL_MS,
+        reconnectBaseDelayMs: this.config.RECONNECT_BASE_DELAY_MS,
+        reconnectMaxDelayMs: this.config.RECONNECT_MAX_DELAY_MS,
+        reconnectMaxAttempts: this.config.RECONNECT_MAX_ATTEMPTS,
+        reconnectJitterMs: this.config.RECONNECT_JITTER_MS,
+        interactiveMessageFallback: this.config.INTERACTIVE_MESSAGE_FALLBACK,
+        interactiveMaxButtons: this.config.INTERACTIVE_MAX_BUTTONS,
         initial: snapshot
       });
     }

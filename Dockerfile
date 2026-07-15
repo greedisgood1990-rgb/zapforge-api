@@ -25,5 +25,5 @@ COPY public ./public
 COPY docs ./docs
 COPY openapi.yaml ./openapi.yaml
 RUN mkdir -p /app/data/sessions /app/data/media
-EXPOSE 2785
+EXPOSE 9467
 CMD ["node", "dist/index.js"]

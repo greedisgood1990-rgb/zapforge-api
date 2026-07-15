@@ -1,9 +1,9 @@
-# ZapForge API v1.1.0
+# ZapForge API v1.2.0
 
 Base local:
 
 ```txt
-http://localhost:2785
+http://localhost:9467
 ```
 
 Autenticação:
@@ -30,6 +30,18 @@ Authorization: Bearer SUA_API_KEY
 ```
 
 O ID aceita 2 a 64 caracteres: letras, números, `_` e `-`.
+
+### `POST /v1/sessions/:id/pairing-code`
+
+```json
+{
+  "phoneNumber": "5511999999999"
+}
+```
+
+O endpoint inicia a sessão quando necessário e retorna `code`, `formattedCode`, `expiresAt`, `nextAllowedAt` e `reused`.
+
+Solicitações repetidas para o mesmo número reutilizam o código ainda válido. Novas solicitações estão sujeitas a cooldown, limite por janela e lockout. Respostas limitadas usam HTTP 429 e o header `Retry-After`.
 
 ### `GET /v1/sessions/:id/capabilities`
 
@@ -141,7 +153,7 @@ Tipos:
 - `call`: requer `phone`.
 - `copy`: requer `value`.
 
-Os botões native-flow são experimentais no provider Baileys.
+Os botões native-flow são experimentais no provider Baileys. Por padrão, falhas de geração ou relay produzem uma mensagem textual equivalente. O retorno informa `deliveryMode` como `native_flow` ou `text_fallback`. Use `disableFallback=true` para desativar o fallback por requisição.
 
 ### Lista — `POST /v1/messages/list`
 

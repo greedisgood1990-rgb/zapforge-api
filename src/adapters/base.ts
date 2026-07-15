@@ -9,6 +9,7 @@ import type {
   OutgoingMediaMessage,
   OutgoingPollMessage,
   OutgoingTextMessage,
+  PairingCodeResult,
   SentMessageResult,
   SessionSnapshot
 } from '../core/types.js';
@@ -21,6 +22,7 @@ export interface MessagingEngine {
   logout(): Promise<void>;
   snapshot(): SessionSnapshot;
   capabilities(): EngineCapabilities;
+  requestPairingCode(phoneNumber: string): Promise<PairingCodeResult>;
 
   sendText(input: OutgoingTextMessage): Promise<SentMessageResult>;
   sendMedia(input: OutgoingMediaMessage): Promise<SentMessageResult>;

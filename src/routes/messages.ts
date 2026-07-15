@@ -143,6 +143,8 @@ export async function messageRoutes(app: FastifyInstance, manager: SessionManage
       body: string;
       title?: string;
       footer?: string;
+      fallbackText?: string;
+      disableFallback?: boolean;
       buttons: InteractiveButton[];
     };
   }>('/v1/messages/buttons', {
@@ -159,6 +161,8 @@ export async function messageRoutes(app: FastifyInstance, manager: SessionManage
           body: { type: 'string', minLength: 1 },
           title: { type: 'string' },
           footer: { type: 'string' },
+          fallbackText: { type: 'string', maxLength: 65536 },
+          disableFallback: { type: 'boolean', default: false },
           buttons: {
             type: 'array',
             minItems: 1,
@@ -186,6 +190,8 @@ export async function messageRoutes(app: FastifyInstance, manager: SessionManage
       body: request.body.body,
       title: request.body.title,
       footer: request.body.footer,
+      fallbackText: request.body.fallbackText,
+      disableFallback: request.body.disableFallback,
       buttons: request.body.buttons
     })
   }));
