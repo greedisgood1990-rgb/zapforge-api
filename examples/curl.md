@@ -1,9 +1,9 @@
-# Exemplos cURL — ZapForge API 1.1
+# Exemplos cURL — ZapForge API 1.2
 
 Defina variáveis:
 
 ```bash
-export ZAPFORGE_URL=http://localhost:2785
+export ZAPFORGE_URL=http://localhost:9467
 export ZAPFORGE_KEY=change-this-super-secret-key
 export ZAPFORGE_SESSION=default
 ```
@@ -15,6 +15,15 @@ curl -X POST "$ZAPFORGE_URL/v1/sessions" \
   -H "x-api-key: $ZAPFORGE_KEY" \
   -H "content-type: application/json" \
   -d '{"id":"default"}'
+```
+
+## Pairing code
+
+```bash
+curl -X POST "$ZAPFORGE_URL/v1/sessions/$ZAPFORGE_SESSION/pairing-code" \
+  -H "x-api-key: $ZAPFORGE_KEY" \
+  -H "content-type: application/json" \
+  -d '{"phoneNumber":"5511999999999"}'
 ```
 
 ## QR Code

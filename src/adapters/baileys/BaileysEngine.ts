@@ -1,3 +1,5 @@
+import fs from 'node:fs/promises';
+import { randomInt } from 'node:crypto';
 import { EventEmitter } from 'node:events';
 import { nanoid } from 'nanoid';
 import type { MessagingEngine } from '../base.js';
@@ -13,6 +15,7 @@ import type {
   OutgoingMediaMessage,
   OutgoingPollMessage,
   OutgoingTextMessage,
+  PairingCodeResult,
   SentMessageResult,
   SessionSnapshot
 } from '../../core/types.js';
@@ -20,12 +23,25 @@ import { nowIso } from '../../utils/time.js';
 import { normalizeJid } from '../../utils/jid.js';
 import { detectMessageType, extractInteraction, extractMessageText } from '../../utils/message.js';
 import { safeSessionPath } from '../../utils/sessionId.js';
+import { ApiError, conflict, tooManyRequests } from '../../core/errors.js';
 
 export interface BaileysEngineOptions {
   id: string;
   sessionDir: string;
   browserName: string;
   maxMentionParticipants: number;
+  pairingCodeCooldownMs: number;
+  pairingCodeWindowMs: number;
+  pairingCodeMaxAttempts: number;
+  pairingCodeLockoutMs: number;
+  pairingCodeStabilizationMs: number;
+  pairingCodeTtlMs: number;
+  reconnectBaseDelayMs: number;
+  reconnectMaxDelayMs: number;
+  reconnectMaxAttempts: number;
+  reconnectJitterMs: number;
+  interactiveMessageFallback: boolean;
+  interactiveMaxButtons: number;
   initial?: Partial<SessionSnapshot>;
 }
 
@@ -43,10 +59,27 @@ export class BaileysEngine implements MessagingEngine {
   private baileys: any;
   private session: SessionSnapshot;
   private options: BaileysEngineOptions;
+  private readonly authPath: string;
+  private startPromise?: Promise<SessionSnapshot>;
+  private intentionalClose = false;
+  private connectionGeneration = 0;
+  private reconnectAttempts = 0;
+  private reconnectTimer?: ReturnType<typeof setTimeout>;
+  private registered = false;
+  private socketCreatedAt = 0;
+  private pairingAttempts: number[] = [];
+  private pairingLockedUntil = 0;
+  private lastPairingAt = 0;
+  private pairingInFlight?: Promise<PairingCodeResult>;
+  private pairingPhoneInFlight?: string;
+  private lastPairingResult?: PairingCodeResult;
+  private pairingModeActive = false;
+  private pairingExpiryTimer?: ReturnType<typeof setTimeout>;
 
   constructor(options: BaileysEngineOptions) {
     const now = nowIso();
     this.options = options;
+    this.authPath = safeSessionPath(options.sessionDir, options.id);
     this.session = {
       id: options.id,
       engine: 'baileys',
@@ -61,54 +94,74 @@ export class BaileysEngine implements MessagingEngine {
   }
 
   async start(): Promise<SessionSnapshot> {
+    if (this.startPromise) return this.startPromise;
+    if (this.socket && ['connecting', 'qr', 'pairing', 'connected'].includes(this.session.state)) {
+      return this.snapshot();
+    }
+
+    this.intentionalClose = false;
+    this.startPromise = this.connectSocket().finally(() => {
+      this.startPromise = undefined;
+    });
+    return this.startPromise;
+  }
+
+  private async connectSocket(): Promise<SessionSnapshot> {
+    this.cancelReconnect();
+    this.update({ state: 'connecting', qr: null });
+
     const baileys: any = await import('@whiskeysockets/baileys');
     this.baileys = baileys;
     const makeWASocket = baileys.default || baileys.makeWASocket;
     const useMultiFileAuthState = baileys.useMultiFileAuthState;
     const fetchLatestBaileysVersion = baileys.fetchLatestBaileysVersion;
     const Browsers = baileys.Browsers;
+    const { state, saveCreds } = await useMultiFileAuthState(this.authPath);
+    this.registered = Boolean(state?.creds?.registered);
 
-    this.update({ state: 'connecting' });
+    const logger = createSilentBaileysLogger();
+    if (typeof baileys.makeCacheableSignalKeyStore === 'function') {
+      state.keys = baileys.makeCacheableSignalKeyStore(state.keys, logger);
+    }
 
-    const authPath = safeSessionPath(this.options.sessionDir, this.options.id);
-    const { state, saveCreds } = await useMultiFileAuthState(authPath);
-    const { version } = await fetchLatestBaileysVersion();
+    let version: unknown;
+    try {
+      version = (await fetchLatestBaileysVersion())?.version;
+    } catch {
+      version = undefined;
+    }
 
-    this.socket = makeWASocket({
-      version,
+    this.teardownSocket();
+    const generation = ++this.connectionGeneration;
+    const socket = makeWASocket({
+      ...(version ? { version } : {}),
       auth: state,
       printQRInTerminal: false,
       browser: Browsers?.ubuntu ? Browsers.ubuntu(this.options.browserName) : undefined,
       markOnlineOnConnect: false,
       syncFullHistory: false,
-      generateHighQualityLinkPreview: true
+      generateHighQualityLinkPreview: true,
+      connectTimeoutMs: 60_000,
+      defaultQueryTimeoutMs: 60_000,
+      keepAliveIntervalMs: 25_000,
+      retryRequestDelayMs: 1_000,
+      logger
     });
 
-    this.socket.ev.on('creds.update', saveCreds);
+    this.socket = socket;
+    this.socketCreatedAt = Date.now();
 
-    this.socket.ev.on('connection.update', (update: any) => {
-      if (update.qr) this.update({ state: 'qr', qr: update.qr });
-
-      if (update.connection === 'open') {
-        const me = this.socket?.user || {};
-        this.update({
-          state: 'connected',
-          qr: null,
-          phone: me?.id || null,
-          name: me?.name || me?.verifiedName || null,
-          lastSeenAt: nowIso()
-        });
-      }
-
-      if (update.connection === 'close') {
-        const statusCode = update?.lastDisconnect?.error?.output?.statusCode;
-        const loggedOutCode = baileys.DisconnectReason?.loggedOut;
-        const loggedOut = loggedOutCode && statusCode === loggedOutCode;
-        this.update({ state: loggedOut ? 'logged_out' : 'disconnected', qr: loggedOut ? null : this.session.qr });
-      }
+    socket.ev.on('creds.update', async () => {
+      this.registered = Boolean(state?.creds?.registered);
+      await saveCreds();
     });
 
-    this.socket.ev.on('messages.upsert', (upsert: any) => {
+    socket.ev.on('connection.update', (update: any) => {
+      void this.handleConnectionUpdate(update, generation);
+    });
+
+    socket.ev.on('messages.upsert', (upsert: any) => {
+      if (generation !== this.connectionGeneration) return;
       for (const message of upsert.messages || []) {
         const interaction = extractInteraction(message);
         const event: IncomingMessageEvent = {
@@ -128,7 +181,8 @@ export class BaileysEngine implements MessagingEngine {
       }
     });
 
-    this.socket.ev.on('groups.update', (updates: any[]) => {
+    socket.ev.on('groups.update', (updates: any[]) => {
+      if (generation !== this.connectionGeneration) return;
       for (const update of updates || []) {
         this.emitter.emit('group.updated', {
           sessionId: this.session.id,
@@ -138,7 +192,8 @@ export class BaileysEngine implements MessagingEngine {
       }
     });
 
-    this.socket.ev.on('group-participants.update', (update: any) => {
+    socket.ev.on('group-participants.update', (update: any) => {
+      if (generation !== this.connectionGeneration) return;
       this.emitter.emit('group.participants.updated', {
         sessionId: this.session.id,
         ...update,
@@ -149,20 +204,337 @@ export class BaileysEngine implements MessagingEngine {
     return this.snapshot();
   }
 
-  async stop(): Promise<void> {
-    if (this.socket?.end) this.socket.end(undefined);
+  private async handleConnectionUpdate(update: any, generation: number): Promise<void> {
+    if (generation !== this.connectionGeneration) return;
+    const { connection, qr, lastDisconnect } = update || {};
+
+    if (qr && !this.pairingModeActive && qr !== this.session.qr) {
+      this.update({
+        state: 'qr',
+        qr,
+        metadata: {
+          ...this.session.metadata,
+          connectionMode: 'qr',
+          qrUpdatedAt: nowIso()
+        }
+      });
+    }
+
+    if (connection === 'connecting' && this.session.state !== 'pairing') {
+      this.update({ state: 'connecting' });
+    }
+
+    if (connection === 'open') {
+      this.cancelReconnect();
+      this.reconnectAttempts = 0;
+      this.registered = true;
+      this.lastPairingResult = undefined;
+      this.pairingModeActive = false;
+      this.cancelPairingExpiry();
+      const me = this.socket?.user || {};
+      this.update({
+        state: 'connected',
+        qr: null,
+        phone: me?.id || null,
+        name: me?.name || me?.verifiedName || null,
+        lastSeenAt: nowIso(),
+        metadata: {
+          ...this.session.metadata,
+          connectedAt: nowIso(),
+          reconnectAttempt: 0
+        }
+      });
+      return;
+    }
+
+    if (connection !== 'close') return;
+
+    const statusCode = lastDisconnect?.error?.output?.statusCode;
+    const loggedOutCode = this.baileys?.DisconnectReason?.loggedOut;
+    const loggedOut = loggedOutCode !== undefined && statusCode === loggedOutCode;
+
+    this.detachSocketListeners(this.socket);
     this.socket = undefined;
+
+    if (this.intentionalClose) {
+      this.update({ state: 'disconnected', qr: null });
+      return;
+    }
+
+    if (loggedOut) {
+      this.registered = false;
+      this.pairingModeActive = false;
+      this.cancelPairingExpiry();
+      this.update({ state: 'logged_out', qr: null });
+      await this.clearAuthState();
+      return;
+    }
+
+    // An unregistered socket closing must not start a QR/pairing loop. The caller can start it again explicitly.
+    if (!this.registered) {
+      this.update({
+        state: 'disconnected',
+        qr: null,
+        metadata: {
+          ...this.session.metadata,
+          disconnectReason: 'unregistered_connection_closed',
+          disconnectedAt: nowIso()
+        }
+      });
+      return;
+    }
+
+    this.scheduleReconnect(statusCode);
+  }
+
+  private scheduleReconnect(statusCode?: number): void {
+    if (this.reconnectTimer || this.intentionalClose) return;
+    if (this.reconnectAttempts >= this.options.reconnectMaxAttempts) {
+      this.update({
+        state: 'failed',
+        qr: null,
+        metadata: {
+          ...this.session.metadata,
+          reconnectAttempt: this.reconnectAttempts,
+          disconnectStatusCode: statusCode ?? null,
+          failureReason: 'reconnect_attempts_exhausted'
+        }
+      });
+      return;
+    }
+
+    this.reconnectAttempts += 1;
+    const exponential = this.options.reconnectBaseDelayMs * 2 ** (this.reconnectAttempts - 1);
+    const delay = Math.min(this.options.reconnectMaxDelayMs, exponential)
+      + (this.options.reconnectJitterMs > 0 ? randomInt(0, this.options.reconnectJitterMs + 1) : 0);
+    const reconnectAt = new Date(Date.now() + delay).toISOString();
+
+    this.update({
+      state: 'disconnected',
+      qr: null,
+      metadata: {
+        ...this.session.metadata,
+        reconnectAttempt: this.reconnectAttempts,
+        reconnectAt,
+        disconnectStatusCode: statusCode ?? null
+      }
+    });
+
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = undefined;
+      if (this.intentionalClose) return;
+      void this.connectSocket().catch((error) => {
+        this.update({
+          state: 'failed',
+          metadata: {
+            ...this.session.metadata,
+            failureReason: error instanceof Error ? error.message : String(error)
+          }
+        });
+      });
+    }, delay);
+  }
+
+  async stop(): Promise<void> {
+    this.intentionalClose = true;
+    this.cancelReconnect();
+    this.cancelPairingExpiry();
+    this.pairingModeActive = false;
+    this.teardownSocket();
     this.update({ state: 'disconnected', qr: null });
   }
 
   async logout(): Promise<void> {
-    if (this.socket?.logout) await this.socket.logout();
+    this.intentionalClose = true;
+    this.cancelReconnect();
+    try {
+      if (this.socket?.logout) await this.socket.logout();
+    } catch {
+      this.teardownSocket();
+    }
     this.socket = undefined;
-    this.update({ state: 'logged_out', qr: null });
+    this.registered = false;
+    this.lastPairingResult = undefined;
+    this.pairingModeActive = false;
+    this.cancelPairingExpiry();
+    await this.clearAuthState();
+    this.update({ state: 'logged_out', qr: null, phone: null, name: null });
   }
 
   snapshot(): SessionSnapshot {
     return structuredClone(this.session);
+  }
+
+  async requestPairingCode(phoneNumber: string): Promise<PairingCodeResult> {
+    const phone = normalizePairingPhoneNumber(phoneNumber);
+    const now = Date.now();
+
+    if (this.session.state === 'connected' || this.registered) {
+      throw conflict('This session is already linked. Logout before requesting a new pairing code.', 'session_already_linked');
+    }
+    if (!this.socket || typeof this.socket.requestPairingCode !== 'function') {
+      throw conflict('Start the session before requesting a pairing code.', 'session_not_initialized');
+    }
+
+    if (
+      this.lastPairingResult
+      && this.lastPairingResult.phoneNumber === phone
+      && now < Date.parse(this.lastPairingResult.expiresAt)
+    ) {
+      return { ...this.lastPairingResult, reused: true };
+    }
+
+    if (this.pairingInFlight) {
+      if (this.pairingPhoneInFlight === phone) return this.pairingInFlight;
+      throw conflict('Another pairing-code request is already running for this session.', 'pairing_request_in_progress');
+    }
+
+    if (now < this.pairingLockedUntil) {
+      const retryAfter = Math.ceil((this.pairingLockedUntil - now) / 1000);
+      throw tooManyRequests(
+        'Pairing requests are temporarily locked for this session.',
+        retryAfter,
+        'pairing_locked',
+        { lockedUntil: new Date(this.pairingLockedUntil).toISOString() }
+      );
+    }
+
+    this.pairingAttempts = this.pairingAttempts.filter(
+      (attemptAt) => now - attemptAt < this.options.pairingCodeWindowMs
+    );
+    if (this.pairingAttempts.length >= this.options.pairingCodeMaxAttempts) {
+      this.pairingLockedUntil = now + this.options.pairingCodeLockoutMs;
+      const retryAfter = Math.ceil(this.options.pairingCodeLockoutMs / 1000);
+      throw tooManyRequests(
+        'Pairing attempt limit reached for this session.',
+        retryAfter,
+        'pairing_attempt_limit',
+        { lockedUntil: new Date(this.pairingLockedUntil).toISOString() }
+      );
+    }
+
+    const nextAllowedAtMs = this.lastPairingAt + this.options.pairingCodeCooldownMs;
+    if (this.lastPairingAt > 0 && now < nextAllowedAtMs) {
+      throw tooManyRequests(
+        'Wait before requesting another pairing code.',
+        Math.ceil((nextAllowedAtMs - now) / 1000),
+        'pairing_cooldown',
+        { nextAllowedAt: new Date(nextAllowedAtMs).toISOString() }
+      );
+    }
+
+    this.lastPairingAt = now;
+    this.pairingAttempts.push(now);
+    this.pairingPhoneInFlight = phone;
+    this.pairingInFlight = this.generatePairingCode(phone).finally(() => {
+      this.pairingInFlight = undefined;
+      this.pairingPhoneInFlight = undefined;
+    });
+    return this.pairingInFlight;
+  }
+
+  private async generatePairingCode(phone: string): Promise<PairingCodeResult> {
+    const elapsed = Date.now() - this.socketCreatedAt;
+    const stabilizationDelay = Math.max(0, this.options.pairingCodeStabilizationMs - elapsed);
+    if (stabilizationDelay > 0) {
+      await new Promise((resolve) => setTimeout(resolve, stabilizationDelay));
+    }
+    if (!this.socket || typeof this.socket.requestPairingCode !== 'function') {
+      throw conflict('The session stopped before the pairing code could be generated.', 'session_not_initialized');
+    }
+
+    this.pairingModeActive = true;
+    this.update({
+      state: 'pairing',
+      qr: null,
+      metadata: {
+        ...this.session.metadata,
+        connectionMode: 'pairing_code',
+        pairingRequestedAt: nowIso(),
+        pairingPhoneSuffix: maskPhoneNumber(phone)
+      }
+    });
+
+    try {
+      const rawCode = await this.socket.requestPairingCode(phone);
+      const code = String(rawCode || '').replace(/\s+/g, '');
+      if (!code) throw new Error('The provider returned an empty pairing code.');
+
+      const generatedAtMs = Date.now();
+      const result: PairingCodeResult = {
+        sessionId: this.session.id,
+        phoneNumber: phone,
+        maskedPhoneNumber: maskPhoneNumber(phone),
+        code,
+        formattedCode: formatPairingCode(code),
+        generatedAt: new Date(generatedAtMs).toISOString(),
+        expiresAt: new Date(generatedAtMs + this.options.pairingCodeTtlMs).toISOString(),
+        nextAllowedAt: new Date(this.lastPairingAt + this.options.pairingCodeCooldownMs).toISOString(),
+        reused: false
+      };
+      this.lastPairingResult = result;
+      this.cancelPairingExpiry();
+      this.pairingExpiryTimer = setTimeout(() => {
+        this.pairingExpiryTimer = undefined;
+        if (this.session.state === 'connected') return;
+        this.lastPairingResult = undefined;
+        this.pairingModeActive = false;
+        this.update({
+          state: this.socket ? 'connecting' : 'disconnected',
+          metadata: {
+            ...this.session.metadata,
+            pairingExpiredAt: nowIso()
+          }
+        });
+      }, this.options.pairingCodeTtlMs);
+      return result;
+    } catch (error) {
+      this.pairingModeActive = false;
+      this.update({ state: 'connecting' });
+      if (error instanceof ApiError) throw error;
+      throw new ApiError(
+        `Pairing code generation failed: ${error instanceof Error ? error.message : String(error)}`,
+        502,
+        'pairing_provider_error'
+      );
+    }
+  }
+
+  private cancelPairingExpiry(): void {
+    if (!this.pairingExpiryTimer) return;
+    clearTimeout(this.pairingExpiryTimer);
+    this.pairingExpiryTimer = undefined;
+  }
+
+  private cancelReconnect(): void {
+    if (!this.reconnectTimer) return;
+    clearTimeout(this.reconnectTimer);
+    this.reconnectTimer = undefined;
+  }
+
+  private detachSocketListeners(socket: any): void {
+    if (!socket) return;
+    socket.ev?.removeAllListeners?.('connection.update');
+    socket.ev?.removeAllListeners?.('creds.update');
+    socket.ev?.removeAllListeners?.('messages.upsert');
+    socket.ev?.removeAllListeners?.('groups.update');
+    socket.ev?.removeAllListeners?.('group-participants.update');
+  }
+
+  private teardownSocket(): void {
+    const socket = this.socket;
+    this.socket = undefined;
+    if (!socket) return;
+    try {
+      this.detachSocketListeners(socket);
+      socket.end?.(undefined);
+    } catch {
+      // Socket teardown is best-effort; a closed WebSocket may throw during end().
+    }
+  }
+
+  private async clearAuthState(): Promise<void> {
+    await fs.rm(this.authPath, { recursive: true, force: true });
   }
 
   capabilities(): EngineCapabilities {
@@ -178,6 +550,8 @@ export class BaileysEngine implements MessagingEngine {
         'messages.copyButtons': 'experimental',
         'messages.lists': 'experimental',
         'messages.polls': true,
+        'sessions.qr': true,
+        'sessions.pairingCode': true,
         'groups.read': true,
         'groups.create': true,
         'groups.update': true,
@@ -186,6 +560,11 @@ export class BaileysEngine implements MessagingEngine {
         'groups.invites': true,
         'groups.joinRequests': true,
         'groups.memberAddMode': true
+      },
+      notes: {
+        'sessions.pairingCode': 'Pairing requests are serialized, cached for their local TTL and protected by cooldown and lockout limits.',
+        'messages.replyButtons': 'Baileys native-flow delivery depends on the current WhatsApp Web protocol. Text fallback is enabled by default.',
+        'messages.urlButtons': 'CTA buttons use native-flow messages and fall back to readable text when relay fails.'
       }
     };
   }
@@ -274,8 +653,37 @@ export class BaileysEngine implements MessagingEngine {
   }
 
   async sendButtons(input: OutgoingButtonsMessage): Promise<SentMessageResult> {
+    if (!input.buttons.length) throw new ApiError('At least one button is required.', 400, 'invalid_buttons');
+    if (input.buttons.length > this.options.interactiveMaxButtons) {
+      throw new ApiError(
+        `Button limit exceeded. Maximum: ${this.options.interactiveMaxButtons}.`,
+        400,
+        'button_limit_exceeded'
+      );
+    }
+    const ids = input.buttons
+      .filter((button) => (button.type || 'reply') === 'reply')
+      .map((button) => button.id)
+      .filter((id): id is string => Boolean(id));
+    if (new Set(ids).size !== ids.length) {
+      throw new ApiError('Reply button ids must be unique.', 400, 'duplicate_button_id');
+    }
+
     const buttons = input.buttons.map((button) => this.nativeButton(button));
-    return this.sendNativeFlow(input.to, input.body, input.title, input.footer, buttons);
+    try {
+      const result = await this.sendNativeFlow(input.to, input.body, input.title, input.footer, buttons);
+      result.deliveryMode = 'native_flow';
+      return result;
+    } catch (error) {
+      if (input.disableFallback || !this.options.interactiveMessageFallback) throw error;
+      const fallbackText = input.fallbackText || buildButtonFallbackText(input);
+      const result = await this.sendText({ sessionId: input.sessionId, to: input.to, body: fallbackText });
+      result.deliveryMode = 'text_fallback';
+      result.warnings = [
+        `Native-flow relay failed; a text fallback was sent instead: ${error instanceof Error ? error.message : String(error)}`
+      ];
+      return result;
+    }
   }
 
   async sendList(input: OutgoingListMessage): Promise<SentMessageResult> {
@@ -467,7 +875,7 @@ export class BaileysEngine implements MessagingEngine {
       header: title
         ? proto.Message.InteractiveMessage.Header.create({ title, hasMediaAttachment: false })
         : undefined,
-      nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.create({ buttons })
+      nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.create({ buttons, messageParamsJson: '{}' })
     });
 
     const generated = generateWAMessageFromContent(to, {
@@ -480,8 +888,11 @@ export class BaileysEngine implements MessagingEngine {
           interactiveMessage
         }
       }
-    }, {});
+    }, { userJid: this.socket?.user?.id });
 
+    if (!generated?.message || !generated?.key?.id) {
+      throw new Error('Baileys did not generate a valid interactive message envelope.');
+    }
     await this.socket.relayMessage(to, generated.message, { messageId: generated.key.id });
     return this.sentResult(to, generated);
   }
@@ -493,6 +904,7 @@ export class BaileysEngine implements MessagingEngine {
       to,
       status: 'sent',
       timestamp: nowIso(),
+      deliveryMode: 'standard',
       raw
     };
     this.emitter.emit('message.sent', result);
@@ -515,6 +927,52 @@ export class BaileysEngine implements MessagingEngine {
     this.session = { ...this.session, ...patch, updatedAt: nowIso() };
     this.emitter.emit('session.updated', this.snapshot());
   }
+}
+
+function createSilentBaileysLogger(): any {
+  const noop = (): void => undefined;
+  const logger: any = {
+    level: 'silent',
+    trace: noop,
+    debug: noop,
+    info: noop,
+    warn: noop,
+    error: noop
+  };
+  logger.child = () => logger;
+  return logger;
+}
+
+function normalizePairingPhoneNumber(input: string): string {
+  const phone = String(input || '').replace(/\D/g, '');
+  if (phone.length < 8 || phone.length > 15) {
+    throw new ApiError(
+      'phoneNumber must contain 8 to 15 digits, including the country code and without +, spaces or punctuation.',
+      400,
+      'invalid_phone_number'
+    );
+  }
+  return phone;
+}
+
+function maskPhoneNumber(phone: string): string {
+  if (phone.length <= 4) return '*'.repeat(phone.length);
+  return `${'*'.repeat(Math.max(4, phone.length - 4))}${phone.slice(-4)}`;
+}
+
+function formatPairingCode(code: string): string {
+  return code.match(/.{1,4}/g)?.join('-') || code;
+}
+
+function buildButtonFallbackText(input: OutgoingButtonsMessage): string {
+  const lines = input.buttons.map((button, index) => {
+    const type = button.type || 'reply';
+    if (type === 'url') return `${index + 1}. ${button.text}: ${button.url}`;
+    if (type === 'call') return `${index + 1}. ${button.text}: ${button.phone}`;
+    if (type === 'copy') return `${index + 1}. ${button.text}: ${button.value}`;
+    return `${index + 1}. ${button.text} [${button.id}]`;
+  });
+  return [input.title, input.body, '', ...lines, input.footer].filter(Boolean).join('\n');
 }
 
 function normalizeGroupJid(input: string): string {

@@ -16,8 +16,8 @@ cp -a "$SOURCE_DIR"/. "$TARGET_DIR"/
 cd "$TARGET_DIR"
 
 if [[ ! -f .env ]]; then
-  cp .env.example .env
-  echo "Arquivo .env criado. Edite API_KEY antes de expor a API."
+  bash scripts/init-env.sh
+  echo "Arquivo .env criado. Revise PUBLIC_URL, CORS_ORIGIN e API_KEY antes de expor a API."
 fi
 
 if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then

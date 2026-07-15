@@ -41,6 +41,54 @@ export async function sessionRoutes(app: FastifyInstance, manager: SessionManage
     schema: { tags: ['Sessions'], summary: 'List provider capabilities and experimental features' }
   }, async (request) => ({ data: manager.capabilities(request.params.id) }));
 
+
+  app.post<{
+    Params: { id: string };
+    Body: { phoneNumber: string };
+  }>('/v1/sessions/:id/pairing-code', {
+    preHandler: app.verifyApiKey,
+    schema: {
+      tags: ['Sessions'],
+      summary: 'Generate a phone-number pairing code',
+      description: 'Starts the session if needed, then requests one pairing code. Requests are serialized and protected by cooldown and lockout limits.',
+      body: {
+        type: 'object',
+        required: ['phoneNumber'],
+        properties: {
+          phoneNumber: {
+            type: 'string',
+            pattern: '^[0-9+(). -]{8,24}$',
+            description: 'Phone number with country code. Formatting characters are removed before the provider call.'
+          }
+        }
+      },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            data: {
+              type: 'object',
+              properties: {
+                sessionId: { type: 'string' },
+                phoneNumber: { type: 'string' },
+                maskedPhoneNumber: { type: 'string' },
+                code: { type: 'string' },
+                formattedCode: { type: 'string' },
+                generatedAt: { type: 'string' },
+                expiresAt: { type: 'string' },
+                nextAllowedAt: { type: 'string' },
+                reused: { type: 'boolean' }
+              }
+            }
+          }
+        }
+      }
+    }
+  }, async (request) => {
+    await manager.start(request.params.id);
+    return { data: await manager.requestPairingCode(request.params.id, request.body.phoneNumber) };
+  });
+
   app.post<{ Params: { id: string } }>('/v1/sessions/:id/start', { preHandler: app.verifyApiKey, schema: { tags: ['Sessions'], summary: 'Start a stored session' } }, async (request) => ({
     data: await manager.start(request.params.id)
   }));

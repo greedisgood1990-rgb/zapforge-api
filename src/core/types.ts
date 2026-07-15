@@ -4,6 +4,7 @@ export type SessionState =
   | 'created'
   | 'connecting'
   | 'qr'
+  | 'pairing'
   | 'connected'
   | 'disconnected'
   | 'logged_out'
@@ -72,6 +73,8 @@ export interface OutgoingButtonsMessage {
   title?: string;
   footer?: string;
   buttons: InteractiveButton[];
+  fallbackText?: string;
+  disableFallback?: boolean;
 }
 
 export interface InteractiveListRow {
@@ -110,6 +113,8 @@ export interface SentMessageResult {
   status: 'queued' | 'sent';
   timestamp: string;
   mentionedCount?: number;
+  deliveryMode?: 'standard' | 'native_flow' | 'text_fallback';
+  warnings?: string[];
   raw?: unknown;
 }
 
@@ -149,9 +154,23 @@ export interface GroupUpdateInput {
   settings?: GroupSettingsInput;
 }
 
+
+export interface PairingCodeResult {
+  sessionId: string;
+  phoneNumber: string;
+  maskedPhoneNumber: string;
+  code: string;
+  formattedCode: string;
+  generatedAt: string;
+  expiresAt: string;
+  nextAllowedAt: string;
+  reused: boolean;
+}
+
 export interface EngineCapabilities {
   provider: EngineName;
   capabilities: Record<string, boolean | 'experimental'>;
+  notes?: Record<string, string>;
 }
 
 export interface WebhookRegistration {

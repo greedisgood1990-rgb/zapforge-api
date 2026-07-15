@@ -94,8 +94,16 @@ export function extractInteraction(message: any): MessageInteraction | null {
     const params = safeJson(native.paramsJson);
     return {
       type: 'native_flow',
-      id: String(params?.id || params?.selected_id || params?.row_id || '') || null,
-      title: String(params?.title || params?.display_text || '') || null,
+      id: String(
+        params?.id
+        || params?.selected_id
+        || params?.row_id
+        || params?.button_id
+        || params?.flow_token
+        || native.name
+        || ''
+      ) || null,
+      title: String(params?.title || params?.display_text || params?.label || '') || null,
       params
     };
   }

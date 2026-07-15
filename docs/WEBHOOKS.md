@@ -30,7 +30,7 @@ HMAC_SHA256(webhook_secret, raw_body)
 ## Cadastrar
 
 ```bash
-curl -X POST http://localhost:2785/v1/webhooks \
+curl -X POST http://localhost:9467/v1/webhooks \
   -H "x-api-key: change-this-super-secret-key" \
   -H "content-type: application/json" \
   -d '{

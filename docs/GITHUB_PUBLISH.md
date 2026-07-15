@@ -37,14 +37,14 @@ git push -u origin main
 Tag sugerida:
 
 ```bash
-git tag v1.0.0
-git push origin v1.0.0
+git tag v1.2.0
+git push origin v1.2.0
 ```
 
 Release title:
 
 ```txt
-ZapForge API v1.0.0 — Self-hosted messaging gateway
+ZapForge API v1.2.0 — Controlled connection lifecycle
 ```
 
 Release notes:
@@ -63,13 +63,9 @@ Highlights:
 - Minimal web dashboard
 ```
 
-## 4. README viral
+## 4. Revisar o README
 
-Use a primeira frase do README como hook:
-
-```txt
-A API open-source para quem quer controlar sua própria infraestrutura de mensagens.
-```
+Mantenha o README orientado a instalação, contratos HTTP, limites conhecidos e procedimentos de validação.
 
 ## 5. Checklist antes de publicar
 

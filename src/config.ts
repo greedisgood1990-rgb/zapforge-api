@@ -6,8 +6,8 @@ dotenv.config();
 const schema = z.object({
   NODE_ENV: z.string().default('development'),
   HOST: z.string().default('0.0.0.0'),
-  PORT: z.coerce.number().int().positive().default(2785),
-  PUBLIC_URL: z.string().url().default('http://localhost:2785'),
+  PORT: z.coerce.number().int().min(1).max(65535).default(9467),
+  PUBLIC_URL: z.string().url().optional(),
   CORS_ORIGIN: z.string().default('*'),
   API_KEY: z.string().min(8).default('change-this-super-secret-key'),
   REQUIRE_API_KEY: z.coerce.boolean().default(true),
@@ -24,8 +24,26 @@ const schema = z.object({
   RESPONSIBLE_MODE: z.coerce.boolean().default(true),
   MAX_MESSAGES_PER_MINUTE_PER_SESSION: z.coerce.number().int().positive().default(60),
   GROUP_MENTION_MAX_PARTICIPANTS: z.coerce.number().int().positive().max(4096).default(1024),
-  GROUP_PARTICIPANT_BATCH_MAX: z.coerce.number().int().positive().max(1000).default(100)
+  GROUP_PARTICIPANT_BATCH_MAX: z.coerce.number().int().positive().max(1000).default(100),
+  PAIRING_CODE_COOLDOWN_MS: z.coerce.number().int().min(15_000).max(600_000).default(60_000),
+  PAIRING_CODE_WINDOW_MS: z.coerce.number().int().min(60_000).max(3_600_000).default(600_000),
+  PAIRING_CODE_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(10).default(3),
+  PAIRING_CODE_LOCKOUT_MS: z.coerce.number().int().min(60_000).max(3_600_000).default(600_000),
+  PAIRING_CODE_STABILIZATION_MS: z.coerce.number().int().min(0).max(30_000).default(3_000),
+  PAIRING_CODE_TTL_MS: z.coerce.number().int().min(60_000).max(600_000).default(180_000),
+  RECONNECT_BASE_DELAY_MS: z.coerce.number().int().min(1_000).max(60_000).default(5_000),
+  RECONNECT_MAX_DELAY_MS: z.coerce.number().int().min(5_000).max(600_000).default(120_000),
+  RECONNECT_MAX_ATTEMPTS: z.coerce.number().int().min(0).max(20).default(6),
+  RECONNECT_JITTER_MS: z.coerce.number().int().min(0).max(30_000).default(3_000),
+  INTERACTIVE_MESSAGE_FALLBACK: z.coerce.boolean().default(true),
+  INTERACTIVE_MAX_BUTTONS: z.coerce.number().int().min(1).max(10).default(3)
 });
 
-export const config = schema.parse(process.env);
+const parsed = schema.parse(process.env);
+
+export const config = {
+  ...parsed,
+  PUBLIC_URL: parsed.PUBLIC_URL ?? `http://localhost:${parsed.PORT}`
+};
+
 export type AppConfig = typeof config;

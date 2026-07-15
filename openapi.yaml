@@ -1,20 +1,21 @@
 openapi: 3.0.3
 info:
   title: ZapForge API
-  version: 1.1.0
-  description: Self-hosted WhatsApp gateway with multi-session REST API, group management, mentions, interactive messages and signed webhooks.
+  version: 1.2.0
+  description: Self-hosted WhatsApp gateway with controlled session lifecycle, QR and pairing-code authentication, group management,
+    interactive messages and signed webhooks.
 servers:
-  - url: http://localhost:2785
+- url: http://localhost:9467
 security:
-  - ApiKeyAuth: []
-  - BearerAuth: []
+- ApiKeyAuth: []
+- BearerAuth: []
 tags:
-  - name: System
-  - name: Sessions
-  - name: Messages
-  - name: Interactive
-  - name: Groups
-  - name: Webhooks
+- name: System
+- name: Sessions
+- name: Messages
+- name: Interactive
+- name: Groups
+- name: Webhooks
 components:
   securitySchemes:
     ApiKeyAuth:
@@ -27,37 +28,64 @@ components:
   schemas:
     SessionId:
       type: string
-      pattern: '^[a-zA-Z0-9][a-zA-Z0-9_-]{1,63}$'
+      pattern: ^[a-zA-Z0-9][a-zA-Z0-9_-]{1,63}$
     SentMessage:
       type: object
       properties:
-        id: { type: string }
-        sessionId: { type: string }
-        to: { type: string }
-        status: { type: string, enum: [queued, sent] }
-        timestamp: { type: string, format: date-time }
-        mentionedCount: { type: integer }
+        id:
+          type: string
+        sessionId:
+          type: string
+        to:
+          type: string
+        status:
+          type: string
+          enum:
+          - queued
+          - sent
+        timestamp:
+          type: string
+          format: date-time
+        mentionedCount:
+          type: integer
+        deliveryMode:
+          type: string
+          enum:
+          - standard
+          - native_flow
+          - text_fallback
+        warnings:
+          type: array
+          items:
+            type: string
     Error:
       type: object
       properties:
-        error: { type: string }
-        message: { type: string }
+        error:
+          type: string
+        message:
+          type: string
 paths:
   /health:
     get:
       security: []
-      tags: [System]
+      tags:
+      - System
       summary: Health check
       responses:
-        '200': { description: OK }
+        '200':
+          description: OK
   /v1/sessions:
     get:
-      tags: [Sessions]
+      tags:
+      - Sessions
       summary: List sessions
       responses:
-        '200': { description: Sessions list }
+        '200':
+          description: Sessions list
     post:
-      tags: [Sessions]
+      tags:
+      - Sessions
       summary: Create or start a session
       requestBody:
         required: true
@@ -65,53 +93,72 @@ paths:
           application/json:
             schema:
               type: object
-              required: [id]
+              required:
+              - id
               properties:
-                id: { $ref: '#/components/schemas/SessionId' }
-                engine: { type: string, enum: [baileys], default: baileys }
+                id:
+                  $ref: '#/components/schemas/SessionId'
+                engine:
+                  type: string
+                  enum:
+                  - baileys
+                  default: baileys
       responses:
-        '200': { description: Session snapshot }
+        '200':
+          description: Session snapshot
   /v1/sessions/{id}:
     parameters:
+    - in: path
+      name: id
+      required: true
+      schema:
+        $ref: '#/components/schemas/SessionId'
+    get:
+      tags:
+      - Sessions
+      summary: Get session
+      responses:
+        '200':
+          description: Session snapshot
+    delete:
+      tags:
+      - Sessions
+      summary: Delete session and auth files
+      responses:
+        '200':
+          description: Deleted
+  /v1/sessions/{id}/qr:
+    get:
+      tags:
+      - Sessions
+      summary: Get QR code
+      parameters:
       - in: path
         name: id
         required: true
-        schema: { $ref: '#/components/schemas/SessionId' }
-    get:
-      tags: [Sessions]
-      summary: Get session
+        schema:
+          $ref: '#/components/schemas/SessionId'
       responses:
-        '200': { description: Session snapshot }
-    delete:
-      tags: [Sessions]
-      summary: Delete session and auth files
-      responses:
-        '200': { description: Deleted }
-  /v1/sessions/{id}/qr:
-    get:
-      tags: [Sessions]
-      summary: Get QR code
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema: { $ref: '#/components/schemas/SessionId' }
-      responses:
-        '200': { description: QR raw value and data URL }
+        '200':
+          description: QR raw value and data URL
   /v1/sessions/{id}/capabilities:
     get:
-      tags: [Sessions]
+      tags:
+      - Sessions
       summary: Get provider capabilities
       parameters:
-        - in: path
-          name: id
-          required: true
-          schema: { $ref: '#/components/schemas/SessionId' }
+      - in: path
+        name: id
+        required: true
+        schema:
+          $ref: '#/components/schemas/SessionId'
       responses:
-        '200': { description: Capability matrix }
+        '200':
+          description: Capability matrix
   /v1/messages/text:
     post:
-      tags: [Messages]
+      tags:
+      - Messages
       summary: Send text
       requestBody:
         required: true
@@ -119,25 +166,39 @@ paths:
           application/json:
             schema:
               type: object
-              required: [to]
+              required:
+              - to
               properties:
-                sessionId: { type: string, default: default }
-                to: { type: string }
-                body: { type: string }
-                text: { type: string }
-                no_link_preview: { type: boolean }
-                typing_time: { type: integer, minimum: 0, maximum: 10000 }
+                sessionId:
+                  type: string
+                  default: default
+                to:
+                  type: string
+                body:
+                  type: string
+                text:
+                  type: string
+                no_link_preview:
+                  type: boolean
+                typing_time:
+                  type: integer
+                  minimum: 0
+                  maximum: 10000
       responses:
-        '200': { description: Sent message }
+        '200':
+          description: Sent message
   /messages/text:
     post:
-      tags: [Messages]
+      tags:
+      - Messages
       summary: Compatibility alias for text messages
       responses:
-        '200': { description: Sent message }
+        '200':
+          description: Sent message
   /v1/messages/media:
     post:
-      tags: [Messages]
+      tags:
+      - Messages
       summary: Send media by URL or base64
       requestBody:
         required: true
@@ -145,21 +206,41 @@ paths:
           application/json:
             schema:
               type: object
-              required: [to, type]
+              required:
+              - to
+              - type
               properties:
-                sessionId: { type: string, default: default }
-                to: { type: string }
-                type: { type: string, enum: [image, video, audio, document, sticker] }
-                url: { type: string }
-                base64: { type: string }
-                filename: { type: string }
-                caption: { type: string }
-                mimetype: { type: string }
+                sessionId:
+                  type: string
+                  default: default
+                to:
+                  type: string
+                type:
+                  type: string
+                  enum:
+                  - image
+                  - video
+                  - audio
+                  - document
+                  - sticker
+                url:
+                  type: string
+                base64:
+                  type: string
+                filename:
+                  type: string
+                caption:
+                  type: string
+                mimetype:
+                  type: string
       responses:
-        '200': { description: Sent media }
+        '200':
+          description: Sent media
   /v1/messages/group-mention:
     post:
-      tags: [Messages, Groups]
+      tags:
+      - Messages
+      - Groups
       summary: Mention all or selected group participants
       requestBody:
         required: true
@@ -167,55 +248,101 @@ paths:
           application/json:
             schema:
               type: object
-              required: [groupId, body]
+              required:
+              - groupId
+              - body
               properties:
-                sessionId: { type: string, default: default }
-                groupId: { type: string }
-                body: { type: string }
-                mentionAll: { type: boolean, default: true }
+                sessionId:
+                  type: string
+                  default: default
+                groupId:
+                  type: string
+                body:
+                  type: string
+                mentionAll:
+                  type: boolean
+                  default: true
                 mentions:
                   type: array
-                  items: { type: string }
-                appendMentions: { type: boolean, default: true }
-                includeAdmins: { type: boolean, default: true }
+                  items:
+                    type: string
+                appendMentions:
+                  type: boolean
+                  default: true
+                includeAdmins:
+                  type: boolean
+                  default: true
       responses:
-        '200': { description: Sent group mention }
+        '200':
+          description: Sent group mention
   /v1/messages/buttons:
     post:
-      tags: [Messages, Interactive]
-      summary: Send native-flow buttons
+      tags:
+      - Messages
+      - Interactive
+      summary: Send native-flow buttons with optional text fallback
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [to, body, buttons]
+              required:
+              - to
+              - body
+              - buttons
               properties:
-                sessionId: { type: string, default: default }
-                to: { type: string }
-                title: { type: string }
-                body: { type: string }
-                footer: { type: string }
+                sessionId:
+                  type: string
+                  default: default
+                to:
+                  type: string
+                title:
+                  type: string
+                body:
+                  type: string
+                footer:
+                  type: string
                 buttons:
                   type: array
                   minItems: 1
-                  maxItems: 10
+                  maxItems: 3
                   items:
                     type: object
-                    required: [text]
+                    required:
+                    - text
                     properties:
-                      type: { type: string, enum: [reply, url, call, copy], default: reply }
-                      id: { type: string }
-                      text: { type: string }
-                      url: { type: string }
-                      phone: { type: string }
-                      value: { type: string }
+                      type:
+                        type: string
+                        enum:
+                        - reply
+                        - url
+                        - call
+                        - copy
+                        default: reply
+                      id:
+                        type: string
+                      text:
+                        type: string
+                      url:
+                        type: string
+                      phone:
+                        type: string
+                      value:
+                        type: string
+                fallbackText:
+                  type: string
+                disableFallback:
+                  type: boolean
+                  default: false
       responses:
-        '200': { description: Sent interactive message }
+        '200':
+          description: Sent interactive message
   /v1/messages/list:
     post:
-      tags: [Messages, Interactive]
+      tags:
+      - Messages
+      - Interactive
       summary: Send a single-select list
       requestBody:
         required: true
@@ -223,35 +350,57 @@ paths:
           application/json:
             schema:
               type: object
-              required: [to, body, buttonText, sections]
+              required:
+              - to
+              - body
+              - buttonText
+              - sections
               properties:
-                sessionId: { type: string, default: default }
-                to: { type: string }
-                title: { type: string }
-                body: { type: string }
-                footer: { type: string }
-                buttonText: { type: string }
+                sessionId:
+                  type: string
+                  default: default
+                to:
+                  type: string
+                title:
+                  type: string
+                body:
+                  type: string
+                footer:
+                  type: string
+                buttonText:
+                  type: string
                 sections:
                   type: array
                   items:
                     type: object
-                    required: [title, rows]
+                    required:
+                    - title
+                    - rows
                     properties:
-                      title: { type: string }
+                      title:
+                        type: string
                       rows:
                         type: array
                         items:
                           type: object
-                          required: [id, title]
+                          required:
+                          - id
+                          - title
                           properties:
-                            id: { type: string }
-                            title: { type: string }
-                            description: { type: string }
+                            id:
+                              type: string
+                            title:
+                              type: string
+                            description:
+                              type: string
       responses:
-        '200': { description: Sent list }
+        '200':
+          description: Sent list
   /v1/messages/poll:
     post:
-      tags: [Messages, Interactive]
+      tags:
+      - Messages
+      - Interactive
       summary: Send a poll
       requestBody:
         required: true
@@ -259,32 +408,48 @@ paths:
           application/json:
             schema:
               type: object
-              required: [to, question, options]
+              required:
+              - to
+              - question
+              - options
               properties:
-                sessionId: { type: string, default: default }
-                to: { type: string }
-                question: { type: string }
+                sessionId:
+                  type: string
+                  default: default
+                to:
+                  type: string
+                question:
+                  type: string
                 options:
                   type: array
                   minItems: 2
                   maxItems: 12
-                  items: { type: string }
-                selectableCount: { type: integer, minimum: 1, default: 1 }
+                  items:
+                    type: string
+                selectableCount:
+                  type: integer
+                  minimum: 1
+                  default: 1
       responses:
-        '200': { description: Sent poll }
+        '200':
+          description: Sent poll
   /v1/sessions/{sessionId}/groups:
     parameters:
-      - in: path
-        name: sessionId
-        required: true
-        schema: { type: string }
+    - in: path
+      name: sessionId
+      required: true
+      schema:
+        type: string
     get:
-      tags: [Groups]
+      tags:
+      - Groups
       summary: List groups
       responses:
-        '200': { description: Groups list }
+        '200':
+          description: Groups list
     post:
-      tags: [Groups]
+      tags:
+      - Groups
       summary: Create group
       requestBody:
         required: true
@@ -292,31 +457,41 @@ paths:
           application/json:
             schema:
               type: object
-              required: [subject, participants]
+              required:
+              - subject
+              - participants
               properties:
-                subject: { type: string }
+                subject:
+                  type: string
                 participants:
                   type: array
-                  items: { type: string }
+                  items:
+                    type: string
       responses:
-        '200': { description: Created group }
+        '200':
+          description: Created group
   /v1/sessions/{sessionId}/groups/{groupId}:
     parameters:
-      - in: path
-        name: sessionId
-        required: true
-        schema: { type: string }
-      - in: path
-        name: groupId
-        required: true
-        schema: { type: string }
+    - in: path
+      name: sessionId
+      required: true
+      schema:
+        type: string
+    - in: path
+      name: groupId
+      required: true
+      schema:
+        type: string
     get:
-      tags: [Groups]
+      tags:
+      - Groups
       summary: Get group metadata
       responses:
-        '200': { description: Group metadata }
+        '200':
+          description: Group metadata
     patch:
-      tags: [Groups]
+      tags:
+      - Groups
       summary: Update group
       requestBody:
         content:
@@ -324,77 +499,109 @@ paths:
             schema:
               type: object
               properties:
-                subject: { type: string }
-                description: { type: string }
+                subject:
+                  type: string
+                description:
+                  type: string
                 settings:
                   type: object
                   properties:
-                    announce: { type: boolean }
-                    locked: { type: boolean }
-                    ephemeralDuration: { type: integer, minimum: 0 }
-                    memberAddMode: { type: string, enum: [admin_add, all_member_add] }
-                    joinApprovalMode: { type: boolean }
+                    announce:
+                      type: boolean
+                    locked:
+                      type: boolean
+                    ephemeralDuration:
+                      type: integer
+                      minimum: 0
+                    memberAddMode:
+                      type: string
+                      enum:
+                      - admin_add
+                      - all_member_add
+                    joinApprovalMode:
+                      type: boolean
       responses:
-        '200': { description: Updated group }
+        '200':
+          description: Updated group
   /v1/sessions/{sessionId}/groups/{groupId}/participants:
     post:
-      tags: [Groups]
+      tags:
+      - Groups
       summary: Add or remove participants
       parameters:
-        - in: path
-          name: sessionId
-          required: true
-          schema: { type: string }
-        - in: path
-          name: groupId
-          required: true
-          schema: { type: string }
+      - in: path
+        name: sessionId
+        required: true
+        schema:
+          type: string
+      - in: path
+        name: groupId
+        required: true
+        schema:
+          type: string
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [participants, action]
+              required:
+              - participants
+              - action
               properties:
                 participants:
                   type: array
-                  items: { type: string }
-                action: { type: string, enum: [add, remove] }
+                  items:
+                    type: string
+                action:
+                  type: string
+                  enum:
+                  - add
+                  - remove
       responses:
-        '200': { description: Participant operation result }
+        '200':
+          description: Participant operation result
   /v1/sessions/{sessionId}/groups/{groupId}/admins:
     post:
-      tags: [Groups]
+      tags:
+      - Groups
       summary: Promote or demote admins
       parameters:
-        - in: path
-          name: sessionId
-          required: true
-          schema: { type: string }
-        - in: path
-          name: groupId
-          required: true
-          schema: { type: string }
-      responses:
-        '200': { description: Admin operation result }
-  /v1/sessions/{sessionId}/groups/{groupId}/join-requests:
-    parameters:
       - in: path
         name: sessionId
         required: true
-        schema: { type: string }
+        schema:
+          type: string
       - in: path
         name: groupId
         required: true
-        schema: { type: string }
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Admin operation result
+  /v1/sessions/{sessionId}/groups/{groupId}/join-requests:
+    parameters:
+    - in: path
+      name: sessionId
+      required: true
+      schema:
+        type: string
+    - in: path
+      name: groupId
+      required: true
+      schema:
+        type: string
     get:
-      tags: [Groups]
+      tags:
+      - Groups
       summary: List pending join requests
       responses:
-        '200': { description: Pending requests }
+        '200':
+          description: Pending requests
     post:
-      tags: [Groups]
+      tags:
+      - Groups
       summary: Approve or reject join requests
       requestBody:
         required: true
@@ -402,78 +609,143 @@ paths:
           application/json:
             schema:
               type: object
-              required: [participants, action]
+              required:
+              - participants
+              - action
               properties:
                 participants:
                   type: array
-                  items: { type: string }
-                action: { type: string, enum: [approve, reject] }
+                  items:
+                    type: string
+                action:
+                  type: string
+                  enum:
+                  - approve
+                  - reject
       responses:
-        '200': { description: Join request operation result }
+        '200':
+          description: Join request operation result
   /v1/sessions/{sessionId}/groups/{groupId}/invite:
     get:
-      tags: [Groups]
+      tags:
+      - Groups
       summary: Get invite code
       parameters:
-        - in: path
-          name: sessionId
-          required: true
-          schema: { type: string }
-        - in: path
-          name: groupId
-          required: true
-          schema: { type: string }
+      - in: path
+        name: sessionId
+        required: true
+        schema:
+          type: string
+      - in: path
+        name: groupId
+        required: true
+        schema:
+          type: string
       responses:
-        '200': { description: Invite code and URL }
+        '200':
+          description: Invite code and URL
   /v1/sessions/{sessionId}/groups/{groupId}/invite/reset:
     post:
-      tags: [Groups]
+      tags:
+      - Groups
       summary: Revoke and renew invite code
       parameters:
-        - in: path
-          name: sessionId
-          required: true
-          schema: { type: string }
-        - in: path
-          name: groupId
-          required: true
-          schema: { type: string }
+      - in: path
+        name: sessionId
+        required: true
+        schema:
+          type: string
+      - in: path
+        name: groupId
+        required: true
+        schema:
+          type: string
       responses:
-        '200': { description: New invite code }
+        '200':
+          description: New invite code
   /v1/sessions/{sessionId}/groups/invite/accept:
     post:
-      tags: [Groups]
+      tags:
+      - Groups
       summary: Join using invite code or URL
       parameters:
-        - in: path
-          name: sessionId
-          required: true
-          schema: { type: string }
+      - in: path
+        name: sessionId
+        required: true
+        schema:
+          type: string
       responses:
-        '200': { description: Joined group ID }
+        '200':
+          description: Joined group ID
   /v1/sessions/{sessionId}/groups/{groupId}/leave:
     post:
-      tags: [Groups]
+      tags:
+      - Groups
       summary: Leave group
       parameters:
-        - in: path
-          name: sessionId
-          required: true
-          schema: { type: string }
-        - in: path
-          name: groupId
-          required: true
-          schema: { type: string }
+      - in: path
+        name: sessionId
+        required: true
+        schema:
+          type: string
+      - in: path
+        name: groupId
+        required: true
+        schema:
+          type: string
       responses:
-        '200': { description: Left group }
+        '200':
+          description: Left group
   /v1/webhooks:
     get:
-      tags: [Webhooks]
+      tags:
+      - Webhooks
       summary: List webhooks
       responses:
-        '200': { description: Webhooks }
+        '200':
+          description: Webhooks
     post:
-      tags: [Webhooks]
+      tags:
+      - Webhooks
       summary: Create webhook
       responses:
-        '200': { description: Created webhook }
+        '200':
+          description: Created webhook
+  /v1/sessions/{id}/pairing-code:
+    post:
+      tags:
+      - Sessions
+      summary: Generate a phone-number pairing code
+      description: Starts the session if needed. Requests are serialized, cached for the local TTL and protected by cooldown
+        and lockout limits.
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          $ref: '#/components/schemas/SessionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - phoneNumber
+              properties:
+                phoneNumber:
+                  type: string
+                  example: '5511999999999'
+      responses:
+        '200':
+          description: Pairing code generated or reused
+        '409':
+          description: Session already linked or request in progress
+        '429':
+          description: Cooldown or lockout active
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+        '502':
+          description: Provider failed to generate the code

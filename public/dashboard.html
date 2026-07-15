@@ -3,82 +3,104 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>ZapForge API Dashboard</title>
+  <title>ZapForge API — Console</title>
   <style>
     :root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-    body { margin: 0; background: #0f172a; color: #e5e7eb; }
-    main { max-width: 1120px; margin: 0 auto; padding: 32px 20px 64px; }
-    .hero { padding: 28px; border: 1px solid rgba(148,163,184,.2); border-radius: 28px; background: radial-gradient(circle at top left, rgba(14,165,233,.22), transparent 38%), #111827; box-shadow: 0 24px 80px rgba(0,0,0,.35); }
-    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 18px; margin-top: 18px; }
-    .card { border: 1px solid rgba(148,163,184,.18); border-radius: 22px; padding: 18px; background: rgba(17,24,39,.86); }
-    h1 { font-size: clamp(2rem, 7vw, 4.6rem); line-height: .92; margin: 0; letter-spacing: -.06em; }
-    h2 { margin: 0 0 12px; }
-    p { color: #94a3b8; }
-    input, textarea, select { width: 100%; box-sizing: border-box; border: 1px solid rgba(148,163,184,.25); background: rgba(15,23,42,.9); color: #e5e7eb; border-radius: 14px; padding: 12px 14px; margin: 7px 0; outline: none; }
-    button { border: 0; border-radius: 14px; padding: 12px 16px; background: linear-gradient(135deg, #06b6d4, #2563eb); color: white; font-weight: 700; cursor: pointer; }
-    button.secondary { background: rgba(148,163,184,.18); }
-    pre { overflow: auto; background: #020617; border-radius: 16px; padding: 14px; color: #a7f3d0; min-height: 90px; }
-    img.qr { max-width: 260px; background: white; padding: 12px; border-radius: 18px; display: none; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #0b1120; color: #e5e7eb; }
+    main { max-width: 1180px; margin: 0 auto; padding: 28px 18px 64px; }
+    header { padding: 24px; border: 1px solid #243047; border-radius: 18px; background: #111827; }
+    header h1 { margin: 0 0 8px; font-size: clamp(1.9rem, 5vw, 3.4rem); letter-spacing: -.04em; }
+    header p { max-width: 820px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(285px, 1fr)); gap: 16px; margin-top: 16px; }
+    .card { border: 1px solid #243047; border-radius: 16px; padding: 18px; background: #111827; }
+    h2 { margin: 0 0 10px; font-size: 1.05rem; }
+    p, small { color: #94a3b8; line-height: 1.5; }
+    label { display: block; margin-top: 10px; color: #cbd5e1; font-size: .86rem; }
+    input, textarea, select { width: 100%; border: 1px solid #334155; background: #0f172a; color: #e5e7eb; border-radius: 10px; padding: 11px 12px; margin-top: 5px; outline: none; }
+    input:focus, textarea:focus { border-color: #38bdf8; }
+    button { border: 0; border-radius: 10px; padding: 11px 14px; margin-top: 10px; background: #0284c7; color: #fff; font-weight: 700; cursor: pointer; }
+    button.secondary { background: #334155; }
+    button:disabled { opacity: .55; cursor: wait; }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; }
+    pre { overflow: auto; max-height: 310px; background: #020617; border: 1px solid #1e293b; border-radius: 10px; padding: 12px; color: #a7f3d0; min-height: 70px; white-space: pre-wrap; word-break: break-word; }
+    .code { padding: 18px; margin-top: 10px; border: 1px dashed #38bdf8; border-radius: 12px; text-align: center; font: 700 1.8rem/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .08em; }
+    img.qr { max-width: 250px; width: 100%; background: white; padding: 10px; border-radius: 12px; display: none; margin-top: 10px; }
+    .notice { padding: 10px 12px; border-left: 3px solid #f59e0b; background: #1c1917; border-radius: 6px; }
     a { color: #67e8f9; }
   </style>
 </head>
 <body>
 <main>
-  <section class="hero">
-    <p>Self-hosted • Multi-session • REST • Webhooks assinados • Baileys engine</p>
+  <header>
     <h1>ZapForge API</h1>
-    <p>Dashboard v1.1 para testar sessões, QR Code, texto, grupos, menções, botões e webhooks. Para documentação completa, abra <a href="/docs">/docs</a>.</p>
-    <input id="apiKey" placeholder="Cole sua API_KEY aqui" />
-  </section>
+    <p>Console operacional para sessões, QR Code, pairing code e mensagens. A documentação completa está disponível em <a href="/docs">/docs</a>.</p>
+    <label for="apiKey">API key</label>
+    <input id="apiKey" type="password" placeholder="x-api-key" autocomplete="off" />
+  </header>
 
   <section class="grid">
     <div class="card">
-      <h2>1. Criar sessão</h2>
+      <h2>Sessão</h2>
+      <label for="sessionId">Identificador</label>
       <input id="sessionId" value="default" />
-      <button onclick="createSession()">Criar / iniciar</button>
-      <button class="secondary" onclick="loadSessions()">Atualizar status</button>
+      <div class="row">
+        <button onclick="createSession(this)">Criar / iniciar</button>
+        <button class="secondary" onclick="loadSessions(this)">Atualizar status</button>
+      </div>
       <pre id="sessionsOut"></pre>
     </div>
 
     <div class="card">
-      <h2>2. QR Code</h2>
-      <button onclick="loadQr()">Carregar QR</button>
-      <p>Escaneie no celular quando o estado estiver <strong>qr</strong>.</p>
+      <h2>Pairing code por número</h2>
+      <label for="pairingPhone">Número com DDI</label>
+      <input id="pairingPhone" inputmode="tel" placeholder="5511999999999" />
+      <button onclick="requestPairingCode(this)">Gerar código</button>
+      <p class="notice">A API reaproveita um código ainda válido e bloqueia solicitações repetidas. Não recarregue a sessão para tentar gerar outro código.</p>
+      <div id="pairingCode" class="code">—</div>
+      <pre id="pairingOut"></pre>
+    </div>
+
+    <div class="card">
+      <h2>QR Code</h2>
+      <button onclick="loadQr(this)">Carregar QR atual</button>
+      <p>O QR é atualizado pela própria sessão. O botão não reinicia a conexão.</p>
       <img id="qr" class="qr" alt="QR Code" />
       <pre id="qrOut"></pre>
     </div>
 
     <div class="card">
-      <h2>3. Enviar texto</h2>
+      <h2>Mensagem de texto</h2>
+      <label for="to">Destinatário</label>
       <input id="to" placeholder="5599999999999 ou grupo@g.us" />
-      <textarea id="body" rows="4" placeholder="Mensagem"></textarea>
-      <button onclick="sendText()">Enviar</button>
+      <label for="body">Texto</label>
+      <textarea id="body" rows="4"></textarea>
+      <button onclick="sendText(this)">Enviar</button>
       <pre id="sendOut"></pre>
     </div>
 
-
     <div class="card">
-      <h2>4. Grupos e @todos</h2>
-      <input id="groupId" placeholder="120363000000000000@g.us" />
-      <textarea id="groupBody" rows="3" placeholder="Mensagem para mencionar todos"></textarea>
-      <button onclick="mentionAll()">Enviar com @todos</button>
-      <button class="secondary" onclick="loadGroups()">Listar grupos</button>
-      <pre id="groupOut"></pre>
-    </div>
-
-    <div class="card">
-      <h2>5. Botões</h2>
+      <h2>Botões interativos</h2>
+      <label for="buttonTo">Destinatário</label>
       <input id="buttonTo" placeholder="5599999999999" />
-      <textarea id="buttonBody" rows="3" placeholder="Escolha uma opção"></textarea>
-      <button onclick="sendButtons()">Enviar Sim / Não</button>
+      <label for="buttonBody">Texto</label>
+      <textarea id="buttonBody" rows="3" placeholder="Confirma o atendimento?"></textarea>
+      <button onclick="sendButtons(this)">Enviar Sim / Não</button>
+      <p>Se o native-flow falhar no provider, a API envia uma versão textual e informa <code>deliveryMode=text_fallback</code>.</p>
       <pre id="buttonOut"></pre>
     </div>
+
     <div class="card">
-      <h2>6. Webhook</h2>
-      <input id="webhookUrl" placeholder="https://seusite.com/webhook" />
-      <button onclick="createWebhook()">Cadastrar webhook</button>
-      <button class="secondary" onclick="loadWebhooks()">Listar</button>
-      <pre id="webhookOut"></pre>
+      <h2>Grupos e menções</h2>
+      <label for="groupId">Grupo</label>
+      <input id="groupId" placeholder="120363000000000000@g.us" />
+      <label for="groupBody">Mensagem</label>
+      <textarea id="groupBody" rows="3"></textarea>
+      <div class="row">
+        <button onclick="mentionAll(this)">Enviar com menções</button>
+        <button class="secondary" onclick="loadGroups(this)">Listar grupos</button>
+      </div>
+      <pre id="groupOut"></pre>
     </div>
   </section>
 </main>
@@ -88,81 +110,93 @@
   const headers = () => ({ 'content-type': 'application/json', 'x-api-key': $('apiKey').value });
   const print = (id, data) => $(id).textContent = JSON.stringify(data, null, 2);
 
-  async function request(path, options = {}) {
-    const res = await fetch(path, { ...options, headers: { ...headers(), ...(options.headers || {}) } });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw data;
-    return data;
-  }
-
-  async function createSession() {
-    try { print('sessionsOut', await request('/v1/sessions', { method: 'POST', body: JSON.stringify({ id: $('sessionId').value }) })); }
-    catch (e) { print('sessionsOut', e); }
-  }
-
-  async function loadSessions() {
-    try { print('sessionsOut', await request('/v1/sessions')); }
-    catch (e) { print('sessionsOut', e); }
-  }
-
-  async function loadQr() {
+  async function call(button, outputId, path, options = {}) {
+    if (button) button.disabled = true;
     try {
-      const data = await request(`/v1/sessions/${$('sessionId').value}/qr`);
+      const response = await fetch(path, { ...options, headers: { ...headers(), ...(options.headers || {}) } });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw data;
+      print(outputId, data);
+      return data;
+    } catch (error) {
+      print(outputId, error);
+      throw error;
+    } finally {
+      if (button) button.disabled = false;
+    }
+  }
+
+  async function createSession(button) {
+    await call(button, 'sessionsOut', '/v1/sessions', {
+      method: 'POST',
+      body: JSON.stringify({ id: $('sessionId').value })
+    }).catch(() => undefined);
+  }
+
+  async function loadSessions(button) {
+    await call(button, 'sessionsOut', '/v1/sessions').catch(() => undefined);
+  }
+
+  async function requestPairingCode(button) {
+    $('pairingCode').textContent = 'gerando…';
+    try {
+      const data = await call(button, 'pairingOut', `/v1/sessions/${encodeURIComponent($('sessionId').value)}/pairing-code`, {
+        method: 'POST',
+        body: JSON.stringify({ phoneNumber: $('pairingPhone').value })
+      });
+      $('pairingCode').textContent = data.data.formattedCode;
+    } catch {
+      $('pairingCode').textContent = '—';
+    }
+  }
+
+  async function loadQr(button) {
+    try {
+      const data = await call(button, 'qrOut', `/v1/sessions/${encodeURIComponent($('sessionId').value)}/qr`);
       $('qr').src = data.data.image;
       $('qr').style.display = 'block';
-      print('qrOut', { sessionId: data.data.sessionId, qr: data.data.qr.slice(0, 60) + '...' });
-    } catch (e) { $('qr').style.display = 'none'; print('qrOut', e); }
+      print('qrOut', { sessionId: data.data.sessionId, available: true });
+    } catch {
+      $('qr').style.display = 'none';
+    }
   }
 
-  async function sendText() {
-    try { print('sendOut', await request('/v1/messages/text', { method: 'POST', body: JSON.stringify({ sessionId: $('sessionId').value, to: $('to').value, body: $('body').value }) })); }
-    catch (e) { print('sendOut', e); }
+  async function sendText(button) {
+    await call(button, 'sendOut', '/v1/messages/text', {
+      method: 'POST',
+      body: JSON.stringify({ sessionId: $('sessionId').value, to: $('to').value, body: $('body').value })
+    }).catch(() => undefined);
   }
 
-
-  async function loadGroups() {
-    try { print('groupOut', await request(`/v1/sessions/${$('sessionId').value}/groups`)); }
-    catch (e) { print('groupOut', e); }
+  async function sendButtons(button) {
+    await call(button, 'buttonOut', '/v1/messages/buttons', {
+      method: 'POST',
+      body: JSON.stringify({
+        sessionId: $('sessionId').value,
+        to: $('buttonTo').value,
+        body: $('buttonBody').value,
+        buttons: [
+          { type: 'reply', id: 'yes', text: 'Sim' },
+          { type: 'reply', id: 'no', text: 'Não' }
+        ]
+      })
+    }).catch(() => undefined);
   }
 
-  async function mentionAll() {
-    try {
-      print('groupOut', await request('/v1/messages/group-mention', {
-        method: 'POST',
-        body: JSON.stringify({
-          sessionId: $('sessionId').value,
-          groupId: $('groupId').value,
-          body: $('groupBody').value,
-          mentionAll: true
-        })
-      }));
-    } catch (e) { print('groupOut', e); }
+  async function loadGroups(button) {
+    await call(button, 'groupOut', `/v1/sessions/${encodeURIComponent($('sessionId').value)}/groups`).catch(() => undefined);
   }
 
-  async function sendButtons() {
-    try {
-      print('buttonOut', await request('/v1/messages/buttons', {
-        method: 'POST',
-        body: JSON.stringify({
-          sessionId: $('sessionId').value,
-          to: $('buttonTo').value,
-          body: $('buttonBody').value,
-          buttons: [
-            { type: 'reply', id: 'yes', text: 'Sim' },
-            { type: 'reply', id: 'no', text: 'Não' }
-          ]
-        })
-      }));
-    } catch (e) { print('buttonOut', e); }
-  }
-  async function createWebhook() {
-    try { print('webhookOut', await request('/v1/webhooks', { method: 'POST', body: JSON.stringify({ url: $('webhookUrl').value, events: ['message.received', 'message.interaction', 'group.updated', 'group.participants.updated', 'session.updated'] }) })); }
-    catch (e) { print('webhookOut', e); }
-  }
-
-  async function loadWebhooks() {
-    try { print('webhookOut', await request('/v1/webhooks')); }
-    catch (e) { print('webhookOut', e); }
+  async function mentionAll(button) {
+    await call(button, 'groupOut', '/v1/messages/group-mention', {
+      method: 'POST',
+      body: JSON.stringify({
+        sessionId: $('sessionId').value,
+        groupId: $('groupId').value,
+        body: $('groupBody').value,
+        mentionAll: true
+      })
+    }).catch(() => undefined);
   }
 </script>
 </body>
