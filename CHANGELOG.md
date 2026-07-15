@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.2.1 — 2026-07-15
+
+### Fixed
+
+- Prevented automatic restore of QR, pairing and never-linked disconnected sessions.
+- Reconnected after Baileys `restartRequired`, including the event ordering where `creds.update` has not completed.
+- Persisted pairing cooldown and lockout counters across process restarts without storing pairing codes.
+- Serialized and atomically replaced the JSON state file.
+- Prevented unhandled promise rejections while saving credentials and session snapshots.
+- Added a bounded message cache for Baileys retry requests.
+- Added validation and text fallback for interactive lists.
+- Normalized CTA URLs and call-button phone numbers.
+
+
 ## 1.2.0 — 2026-07-15
 
 ### Added

@@ -39,8 +39,14 @@ export class SessionManager {
     await fs.mkdir(this.config.SESSION_DIR, { recursive: true });
 
     for (const session of this.store.allSessions()) {
-      if (session.state === 'connected' || session.state === 'qr' || session.state === 'pairing' || session.state === 'connecting' || session.state === 'disconnected') {
+      if (!this.shouldRestoreSession(session)) continue;
+      try {
         await this.start(session.id, session.engine, true);
+      } catch (error) {
+        await this.store.audit('system', 'session.restore.failed', {
+          id: session.id,
+          error: error instanceof Error ? error.message : String(error)
+        }).catch(() => undefined);
       }
     }
   }
@@ -72,7 +78,8 @@ export class SessionManager {
 
   async start(id: string, engine: EngineName = 'baileys', restore = false): Promise<SessionSnapshot> {
     assertValidSessionId(id);
-    if (this.engines.has(id)) return this.engines.get(id)!.start();
+    const running = this.engines.get(id);
+    if (running) return running.start();
 
     const existing = this.store.getSession(id);
     const snapshot: SessionSnapshot = existing || {
@@ -91,9 +98,32 @@ export class SessionManager {
     this.wireEngine(instance);
     this.engines.set(id, instance);
     await this.store.saveSession(snapshot);
-    await this.store.audit('api', restore ? 'session.restore' : 'session.start', { id, engine });
+    await this.store.audit('api', restore ? 'session.restore' : 'session.start', { id, engine: snapshot.engine });
 
-    return instance.start();
+    try {
+      return await instance.start();
+    } catch (error) {
+      this.engines.delete(id);
+      await instance.stop().catch(() => undefined);
+      const failed: SessionSnapshot = {
+        ...instance.snapshot(),
+        state: 'failed',
+        qr: null,
+        updatedAt: nowIso(),
+        metadata: {
+          ...instance.snapshot().metadata,
+          startFailedAt: nowIso(),
+          startFailure: error instanceof Error ? error.message : String(error)
+        }
+      };
+      await this.store.saveSession(failed);
+      await this.store.audit('api', 'session.start.failed', {
+        id,
+        restore,
+        error: error instanceof Error ? error.message : String(error)
+      }).catch(() => undefined);
+      throw error;
+    }
   }
 
   async stop(id: string): Promise<SessionSnapshot> {
@@ -242,6 +272,11 @@ export class SessionManager {
     }
   }
 
+  private shouldRestoreSession(session: SessionSnapshot): boolean {
+    const linked = Boolean(session.phone) || session.metadata?.registered === true;
+    return linked && ['connected', 'connecting', 'disconnected'].includes(session.state);
+  }
+
   private createEngine(engine: EngineName, snapshot: SessionSnapshot): MessagingEngine {
     if (engine === 'baileys') {
       return new BaileysEngine({
@@ -261,6 +296,8 @@ export class SessionManager {
         reconnectJitterMs: this.config.RECONNECT_JITTER_MS,
         interactiveMessageFallback: this.config.INTERACTIVE_MESSAGE_FALLBACK,
         interactiveMaxButtons: this.config.INTERACTIVE_MAX_BUTTONS,
+        interactiveMaxListRows: this.config.INTERACTIVE_MAX_LIST_ROWS,
+        messageRetryCacheMax: this.config.MESSAGE_RETRY_CACHE_MAX,
         initial: snapshot
       });
     }
@@ -269,9 +306,15 @@ export class SessionManager {
   }
 
   private wireEngine(engine: MessagingEngine): void {
-    engine.addListener('session.updated', async (snapshot) => {
-      await this.store.saveSession(snapshot);
-      this.bus.emitGateway('session.updated', snapshot, snapshot.id);
+    engine.addListener('session.updated', (snapshot) => {
+      void this.store.saveSession(snapshot)
+        .then(() => this.bus.emitGateway('session.updated', snapshot, snapshot.id))
+        .catch((error) => {
+          console.error('[session.persist.failed]', {
+            sessionId: snapshot.id,
+            error: error instanceof Error ? error.message : String(error)
+          });
+        });
     });
 
     engine.addListener('message.received', async (event) => {

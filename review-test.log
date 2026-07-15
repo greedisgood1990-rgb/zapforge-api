@@ -1,0 +1,11 @@
+
+> zapforge-api@1.2.1 test
+> npm run build && node --test tests/*.test.mjs
+
+
+> zapforge-api@1.2.1 build
+> tsc -p tsconfig.json
+
+src/adapters/baileys/BaileysEngine.ts(83,11): error TS2451: Cannot redeclare block-scoped variable 'now'.
+src/adapters/baileys/BaileysEngine.ts(99,11): error TS2451: Cannot redeclare block-scoped variable 'now'.
+src/adapters/baileys/BaileysEngine.ts(101,22): error TS2362: The left-hand side of an arithmetic operation must be of type 'any', 'number', 'bigint' or an enum type.

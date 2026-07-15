@@ -84,7 +84,8 @@ export async function sessionRoutes(app: FastifyInstance, manager: SessionManage
         }
       }
     }
-  }, async (request) => {
+  }, async (request, reply) => {
+    reply.header('cache-control', 'no-store');
     await manager.start(request.params.id);
     return { data: await manager.requestPairingCode(request.params.id, request.body.phoneNumber) };
   });
@@ -107,6 +108,7 @@ export async function sessionRoutes(app: FastifyInstance, manager: SessionManage
   });
 
   app.get<{ Params: { id: string } }>('/v1/sessions/:id/qr', { preHandler: app.verifyApiKey, schema: { tags: ['Sessions'], summary: 'Get the latest QR as raw text and data URL' } }, async (request, reply) => {
+    reply.header('cache-control', 'no-store');
     const session = manager.get(request.params.id);
     if (!session) return reply.code(404).send({ error: 'not_found', message: 'Session not found.' });
     if (!session.qr) return reply.code(404).send({ error: 'qr_not_available', message: 'QR not available. Start the session and wait for state=qr.' });

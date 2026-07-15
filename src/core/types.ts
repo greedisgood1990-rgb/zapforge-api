@@ -96,6 +96,8 @@ export interface OutgoingListMessage {
   footer?: string;
   buttonText: string;
   sections: InteractiveListSection[];
+  fallbackText?: string;
+  disableFallback?: boolean;
 }
 
 export interface OutgoingPollMessage {
