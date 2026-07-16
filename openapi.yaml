@@ -1,6 +1,6 @@
 openapi: 3.0.3
 info:
-  title: ZapForge API
+  title: Zapinho API
   version: 1.2.1
   description: Self-hosted WhatsApp gateway with controlled session lifecycle, QR and pairing-code authentication, group management,
     interactive messages and signed webhooks.

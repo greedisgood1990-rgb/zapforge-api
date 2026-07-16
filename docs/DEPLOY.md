@@ -3,8 +3,8 @@
 ## VPS com Docker
 
 ```bash
-git clone https://github.com/SEU-USUARIO/zapforge-api.git
-cd zapforge-api
+git clone https://github.com/SEU-USUARIO/zapinho-api.git
+cd zapinho-api
 bash scripts/init-env.sh
 nano .env
 docker compose up -d --build
@@ -13,7 +13,7 @@ docker compose up -d --build
 Ver logs:
 
 ```bash
-docker logs -f zapforge-api
+docker logs -f zapinho-api
 ```
 
 ## Nginx reverse proxy

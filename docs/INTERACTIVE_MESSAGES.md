@@ -2,7 +2,7 @@
 
 ## Scope
 
-The Baileys adapter sends buttons and lists through WhatsApp native-flow message envelopes. This protocol is not a stable public API and can change independently of ZapForge.
+The Baileys adapter sends buttons and lists through WhatsApp native-flow message envelopes. This protocol is not a stable public API and can change independently of Zapinho.
 
 The implementation therefore separates message construction from delivery fallback and reports the selected mode in every response.
 
@@ -41,7 +41,7 @@ Lists use the same fallback controls as buttons:
 
 ## Native-flow envelope
 
-ZapForge builds an `InteractiveMessage` with:
+Zapinho builds an `InteractiveMessage` with:
 
 - body;
 - optional header title;

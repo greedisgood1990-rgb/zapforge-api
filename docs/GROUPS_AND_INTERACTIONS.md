@@ -6,7 +6,7 @@ O WhatsApp exige que a conta conectada seja administradora para diversas operaç
 
 ## Menção de todos
 
-O ZapForge obtém os participantes diretamente dos metadados atuais do grupo. O envio inclui a lista de JIDs no contexto da mensagem e, por padrão, acrescenta as marcações visíveis ao final do texto.
+O Zapinho obtém os participantes diretamente dos metadados atuais do grupo. O envio inclui a lista de JIDs no contexto da mensagem e, por padrão, acrescenta as marcações visíveis ao final do texto.
 
 Controles:
 

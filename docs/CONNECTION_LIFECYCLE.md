@@ -19,13 +19,13 @@
 
 Each socket is assigned a local generation number. Events received from an older socket are ignored after a replacement socket has been created.
 
-Before a replacement socket is opened, ZapForge removes listeners from the previous socket and closes it. This prevents reconnect attempts from accumulating listeners or triggering a second reconnect from a stale close event.
+Before a replacement socket is opened, Zapinho removes listeners from the previous socket and closes it. This prevents reconnect attempts from accumulating listeners or triggering a second reconnect from a stale close event.
 
 ## QR mode
 
-The socket publishes QR references through `connection.update`. ZapForge stores the latest distinct reference. Calling `GET /v1/sessions/:id/qr` only reads the current reference; it does not restart the session or request a new QR.
+The socket publishes QR references through `connection.update`. Zapinho stores the latest distinct reference. Calling `GET /v1/sessions/:id/qr` only reads the current reference; it does not restart the session or request a new QR.
 
-When an unregistered socket closes, ZapForge does not reconnect automatically. This prevents an unattended QR generation loop. Call `POST /v1/sessions/:id/start` when another explicit attempt is required.
+When an unregistered socket closes, Zapinho does not reconnect automatically. This prevents an unattended QR generation loop. Call `POST /v1/sessions/:id/start` when another explicit attempt is required.
 
 ## Pairing-code mode
 

@@ -5,7 +5,7 @@
 No GitHub, crie um novo repositório chamado:
 
 ```txt
-zapforge-api
+zapinho-api
 ```
 
 Descrição recomendada:
@@ -23,12 +23,12 @@ whatsapp-api, baileys, self-hosted, rest-api, webhooks, nodejs, typescript, dock
 ## 2. Subir o código
 
 ```bash
-cd zapforge-api
+cd zapinho-api
 git init
 git add .
-git commit -m "feat: launch ZapForge API"
+git commit -m "feat: launch Zapinho API"
 git branch -M main
-git remote add origin https://github.com/SEU-USUARIO/zapforge-api.git
+git remote add origin https://github.com/SEU-USUARIO/zapinho-api.git
 git push -u origin main
 ```
 
@@ -44,13 +44,13 @@ git push origin v1.2.0
 Release title:
 
 ```txt
-ZapForge API v1.2.0 — Controlled connection lifecycle
+Zapinho API v1.2.0 — Controlled connection lifecycle
 ```
 
 Release notes:
 
 ```txt
-First public release of ZapForge API.
+First public release of Zapinho API.
 
 Highlights:
 - Multi-session REST API

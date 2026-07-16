@@ -4,8 +4,8 @@ import { BaileysEngine } from '../dist/adapters/baileys/BaileysEngine.js';
 
 const options = {
   id: 'test-session',
-  sessionDir: '/tmp/zapforge-test-sessions',
-  browserName: 'ZapForge-Test',
+  sessionDir: '/tmp/zapinho-test-sessions',
+  browserName: 'Zapinho-Test',
   maxMentionParticipants: 10,
   pairingCodeCooldownMs: 60_000,
   pairingCodeWindowMs: 600_000,

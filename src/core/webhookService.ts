@@ -77,6 +77,10 @@ export class WebhookService {
           method: 'POST',
           headers: {
             'content-type': 'application/json',
+            'x-zapinho-event': event.event,
+            'x-zapinho-delivery': event.id,
+            'x-zapinho-signature': `sha256=${signature}`,
+            // legacy headers kept for backward compatibility with existing integrations
             'x-zapforge-event': event.event,
             'x-zapforge-delivery': event.id,
             'x-zapforge-signature': `sha256=${signature}`

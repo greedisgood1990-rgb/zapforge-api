@@ -1,6 +1,6 @@
 # Webhooks
 
-O ZapForge envia eventos HTTP POST assinados com HMAC SHA-256.
+O Zapinho envia eventos HTTP POST assinados com HMAC SHA-256.
 
 ## Eventos
 
@@ -14,10 +14,14 @@ O ZapForge envia eventos HTTP POST assinados com HMAC SHA-256.
 ## Headers
 
 ```txt
-x-zapforge-event: message.interaction
-x-zapforge-delivery: delivery-id
-x-zapforge-signature: sha256=<hmac>
+x-zapinho-event: message.interaction
+x-zapinho-delivery: delivery-id
+x-zapinho-signature: sha256=<hmac>
 ```
+
+> Os headers legados `x-zapforge-event` / `x-zapforge-delivery` / `x-zapforge-signature`
+> continuam sendo enviados em paralelo (mesmo valor) para não quebrar integrações
+> existentes. Novas integrações devem usar os headers `x-zapinho-*`.
 
 ## Assinatura
 
@@ -34,7 +38,7 @@ curl -X POST http://localhost:9467/v1/webhooks \
   -H "x-api-key: change-this-super-secret-key" \
   -H "content-type: application/json" \
   -d '{
-    "url":"https://example.com/webhooks/zapforge",
+    "url":"https://example.com/webhooks/zapinho",
     "events":["message.interaction","group.participants.updated"]
   }'
 ```

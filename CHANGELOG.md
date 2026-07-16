@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.3.0 — 2026-07-16
+
+### Changed
+
+- Renamed the project from ZapForge API to Zapinho API (repo, package name, Docker service/container name, docs, OpenAPI spec, Postman collection).
+- Default `APP_BROWSER_NAME` changed from `ZapForge` to `Zapinho`.
+- Webhook deliveries now send `x-zapinho-event` / `x-zapinho-delivery` / `x-zapinho-signature` as the primary headers. The legacy `x-zapforge-*` headers are still sent in parallel for backward compatibility with existing integrations.
+
 ## 1.2.1 — 2026-07-15
 
 ### Fixed

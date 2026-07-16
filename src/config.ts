@@ -20,7 +20,7 @@ const schema = z.object({
   STORE_FILE: z.string().default('./data/store.json'),
   MEDIA_DIR: z.string().default('./data/media'),
   DEFAULT_ENGINE: z.enum(['baileys']).default('baileys'),
-  APP_BROWSER_NAME: z.string().default('ZapForge'),
+  APP_BROWSER_NAME: z.string().default('Zapinho'),
   RESPONSIBLE_MODE: z.coerce.boolean().default(true),
   MAX_MESSAGES_PER_MINUTE_PER_SESSION: z.coerce.number().int().positive().default(60),
   GROUP_MENTION_MAX_PARTICIPANTS: z.coerce.number().int().positive().max(4096).default(1024),

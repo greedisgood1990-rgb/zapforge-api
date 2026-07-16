@@ -7,13 +7,13 @@ Este pacote é completo. O ZIP pode ser enviado diretamente do computador local 
 O arquivo estará em:
 
 ```txt
-/home/renato-gomes/Downloads/zapforge-api-v1.2.0-completo.zip
+/home/renato-gomes/Downloads/zapinho-api-v1.2.0-completo.zip
 ```
 
 Envie para o servidor:
 
 ```bash
-scp /home/renato-gomes/Downloads/zapforge-api-v1.2.0-completo.zip root@IP_DO_SERVIDOR:/root/
+scp /home/renato-gomes/Downloads/zapinho-api-v1.2.0-completo.zip root@IP_DO_SERVIDOR:/root/
 ```
 
 ## 2. Acessar o servidor
@@ -28,10 +28,10 @@ ssh root@IP_DO_SERVIDOR
 apt update
 apt install -y unzip git docker.io docker-compose-plugin
 
-mkdir -p /opt/zapforge-api
-cd /opt/zapforge-api
-unzip -o /root/zapforge-api-v1.2.0-completo.zip -d /tmp/zapforge-release
-cp -a /tmp/zapforge-release/zapforge-api/. /opt/zapforge-api/
+mkdir -p /opt/zapinho-api
+cd /opt/zapinho-api
+unzip -o /root/zapinho-api-v1.2.0-completo.zip -d /tmp/zapinho-release
+cp -a /tmp/zapinho-release/zapinho-api/. /opt/zapinho-api/
 
 cp .env.example .env
 nano .env
@@ -51,17 +51,17 @@ docker compose logs -f --tail=100
 O procedimento abaixo preserva `.env` e `data/` e cria backup antes de atualizar.
 
 ```bash
-cd /opt/zapforge-api
+cd /opt/zapinho-api
 
-BACKUP="/root/zapforge-backup-$(date +%Y%m%d-%H%M%S).tar.gz"
+BACKUP="/root/zapinho-backup-$(date +%Y%m%d-%H%M%S).tar.gz"
 tar -czf "$BACKUP" .env data 2>/dev/null || true
 
 docker compose down
-rm -rf /tmp/zapforge-release
-mkdir -p /tmp/zapforge-release
-unzip -o /root/zapforge-api-v1.2.0-completo.zip -d /tmp/zapforge-release
+rm -rf /tmp/zapinho-release
+mkdir -p /tmp/zapinho-release
+unzip -o /root/zapinho-api-v1.2.0-completo.zip -d /tmp/zapinho-release
 
-cp -a /tmp/zapforge-release/zapforge-api/. /opt/zapforge-api/
+cp -a /tmp/zapinho-release/zapinho-api/. /opt/zapinho-api/
 
 docker compose up -d --build
 curl http://127.0.0.1:9467/health
@@ -84,13 +84,13 @@ Requisitos: Node.js 20 ou 22, npm e Git.
 apt update
 apt install -y unzip git ca-certificates
 
-mkdir -p /opt/zapforge-api
-rm -rf /tmp/zapforge-release
-mkdir -p /tmp/zapforge-release
-unzip -o /root/zapforge-api-v1.2.0-completo.zip -d /tmp/zapforge-release
-cp -a /tmp/zapforge-release/zapforge-api/. /opt/zapforge-api/
+mkdir -p /opt/zapinho-api
+rm -rf /tmp/zapinho-release
+mkdir -p /tmp/zapinho-release
+unzip -o /root/zapinho-api-v1.2.0-completo.zip -d /tmp/zapinho-release
+cp -a /tmp/zapinho-release/zapinho-api/. /opt/zapinho-api/
 
-cd /opt/zapforge-api
+cd /opt/zapinho-api
 [ -f .env ] || cp .env.example .env
 npm install --no-audit --no-fund
 npm run build
@@ -101,7 +101,7 @@ Com PM2:
 
 ```bash
 npm install -g pm2
-pm2 start dist/index.js --name zapforge-api
+pm2 start dist/index.js --name zapinho-api
 pm2 save
 pm2 startup
 ```

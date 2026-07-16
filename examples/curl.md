@@ -1,18 +1,18 @@
-# Exemplos cURL — ZapForge API 1.2
+# Exemplos cURL — Zapinho API 1.2
 
 Defina variáveis:
 
 ```bash
-export ZAPFORGE_URL=http://localhost:9467
-export ZAPFORGE_KEY=change-this-super-secret-key
-export ZAPFORGE_SESSION=default
+export ZAPINHO_URL=http://localhost:9467
+export ZAPINHO_KEY=change-this-super-secret-key
+export ZAPINHO_SESSION=default
 ```
 
 ## Criar sessão
 
 ```bash
-curl -X POST "$ZAPFORGE_URL/v1/sessions" \
-  -H "x-api-key: $ZAPFORGE_KEY" \
+curl -X POST "$ZAPINHO_URL/v1/sessions" \
+  -H "x-api-key: $ZAPINHO_KEY" \
   -H "content-type: application/json" \
   -d '{"id":"default"}'
 ```
@@ -20,8 +20,8 @@ curl -X POST "$ZAPFORGE_URL/v1/sessions" \
 ## Pairing code
 
 ```bash
-curl -X POST "$ZAPFORGE_URL/v1/sessions/$ZAPFORGE_SESSION/pairing-code" \
-  -H "x-api-key: $ZAPFORGE_KEY" \
+curl -X POST "$ZAPINHO_URL/v1/sessions/$ZAPINHO_SESSION/pairing-code" \
+  -H "x-api-key: $ZAPINHO_KEY" \
   -H "content-type: application/json" \
   -d '{"phoneNumber":"5511999999999"}'
 ```
@@ -29,31 +29,31 @@ curl -X POST "$ZAPFORGE_URL/v1/sessions/$ZAPFORGE_SESSION/pairing-code" \
 ## QR Code
 
 ```bash
-curl "$ZAPFORGE_URL/v1/sessions/$ZAPFORGE_SESSION/qr" \
-  -H "x-api-key: $ZAPFORGE_KEY"
+curl "$ZAPINHO_URL/v1/sessions/$ZAPINHO_SESSION/qr" \
+  -H "x-api-key: $ZAPINHO_KEY"
 ```
 
 ## Capabilities
 
 ```bash
-curl "$ZAPFORGE_URL/v1/sessions/$ZAPFORGE_SESSION/capabilities" \
-  -H "x-api-key: $ZAPFORGE_KEY"
+curl "$ZAPINHO_URL/v1/sessions/$ZAPINHO_SESSION/capabilities" \
+  -H "x-api-key: $ZAPINHO_KEY"
 ```
 
 ## Enviar texto
 
 ```bash
-curl -X POST "$ZAPFORGE_URL/v1/messages/text" \
-  -H "x-api-key: $ZAPFORGE_KEY" \
+curl -X POST "$ZAPINHO_URL/v1/messages/text" \
+  -H "x-api-key: $ZAPINHO_KEY" \
   -H "content-type: application/json" \
-  -d '{"sessionId":"default","to":"5599999999999","body":"Olá da ZapForge API"}'
+  -d '{"sessionId":"default","to":"5599999999999","body":"Olá da Zapinho API"}'
 ```
 
 ## Mencionar todos no grupo
 
 ```bash
-curl -X POST "$ZAPFORGE_URL/v1/messages/group-mention" \
-  -H "x-api-key: $ZAPFORGE_KEY" \
+curl -X POST "$ZAPINHO_URL/v1/messages/group-mention" \
+  -H "x-api-key: $ZAPINHO_KEY" \
   -H "content-type: application/json" \
   -d '{"sessionId":"default","groupId":"120363000000000000@g.us","body":"Atenção!","mentionAll":true}'
 ```
@@ -61,8 +61,8 @@ curl -X POST "$ZAPFORGE_URL/v1/messages/group-mention" \
 ## Botões
 
 ```bash
-curl -X POST "$ZAPFORGE_URL/v1/messages/buttons" \
-  -H "x-api-key: $ZAPFORGE_KEY" \
+curl -X POST "$ZAPINHO_URL/v1/messages/buttons" \
+  -H "x-api-key: $ZAPINHO_KEY" \
   -H "content-type: application/json" \
   -d '{
     "sessionId":"default",
@@ -78,8 +78,8 @@ curl -X POST "$ZAPFORGE_URL/v1/messages/buttons" \
 ## Lista
 
 ```bash
-curl -X POST "$ZAPFORGE_URL/v1/messages/list" \
-  -H "x-api-key: $ZAPFORGE_KEY" \
+curl -X POST "$ZAPINHO_URL/v1/messages/list" \
+  -H "x-api-key: $ZAPINHO_KEY" \
   -H "content-type: application/json" \
   -d '{
     "sessionId":"default",
@@ -93,8 +93,8 @@ curl -X POST "$ZAPFORGE_URL/v1/messages/list" \
 ## Enquete
 
 ```bash
-curl -X POST "$ZAPFORGE_URL/v1/messages/poll" \
-  -H "x-api-key: $ZAPFORGE_KEY" \
+curl -X POST "$ZAPINHO_URL/v1/messages/poll" \
+  -H "x-api-key: $ZAPINHO_KEY" \
   -H "content-type: application/json" \
   -d '{"sessionId":"default","to":"120363000000000000@g.us","question":"Melhor horário?","options":["09:00","14:00","18:00"]}'
 ```
@@ -102,8 +102,8 @@ curl -X POST "$ZAPFORGE_URL/v1/messages/poll" \
 ## Criar grupo
 
 ```bash
-curl -X POST "$ZAPFORGE_URL/v1/sessions/default/groups" \
-  -H "x-api-key: $ZAPFORGE_KEY" \
+curl -X POST "$ZAPINHO_URL/v1/sessions/default/groups" \
+  -H "x-api-key: $ZAPINHO_KEY" \
   -H "content-type: application/json" \
   -d '{"subject":"Clientes VIP","participants":["5511999999999"]}'
 ```
@@ -111,8 +111,8 @@ curl -X POST "$ZAPFORGE_URL/v1/sessions/default/groups" \
 ## Adicionar participante
 
 ```bash
-curl -X POST "$ZAPFORGE_URL/v1/sessions/default/groups/120363000000000000@g.us/participants" \
-  -H "x-api-key: $ZAPFORGE_KEY" \
+curl -X POST "$ZAPINHO_URL/v1/sessions/default/groups/120363000000000000@g.us/participants" \
+  -H "x-api-key: $ZAPINHO_KEY" \
   -H "content-type: application/json" \
   -d '{"participants":["5511888888888"],"action":"add"}'
 ```
@@ -120,8 +120,8 @@ curl -X POST "$ZAPFORGE_URL/v1/sessions/default/groups/120363000000000000@g.us/p
 ## Promover administrador
 
 ```bash
-curl -X POST "$ZAPFORGE_URL/v1/sessions/default/groups/120363000000000000@g.us/admins" \
-  -H "x-api-key: $ZAPFORGE_KEY" \
+curl -X POST "$ZAPINHO_URL/v1/sessions/default/groups/120363000000000000@g.us/admins" \
+  -H "x-api-key: $ZAPINHO_KEY" \
   -H "content-type: application/json" \
   -d '{"participants":["5511888888888"],"action":"promote"}'
 ```

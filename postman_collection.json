@@ -1,6 +1,6 @@
 {
   "info": {
-    "name": "ZapForge API 1.2",
+    "name": "Zapinho API 1.2",
     "description": "Session lifecycle, QR and pairing code, groups, mentions, interactive messages and webhooks.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
@@ -128,7 +128,7 @@
             "url": "{{baseUrl}}/v1/messages/text",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"sessionId\": \"{{sessionId}}\",\n  \"to\": \"5599999999999\",\n  \"body\": \"Olá da ZapForge API\"\n}"
+              "raw": "{\n  \"sessionId\": \"{{sessionId}}\",\n  \"to\": \"5599999999999\",\n  \"body\": \"Olá da Zapinho API\"\n}"
             }
           }
         },

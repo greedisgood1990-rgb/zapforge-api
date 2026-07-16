@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-TARGET_DIR="${1:-/opt/zapforge-api}"
+TARGET_DIR="${1:-/opt/zapinho-api}"
 SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
-BACKUP="/tmp/zapforge-backup-${TIMESTAMP}.tar.gz"
+BACKUP="/tmp/zapinho-backup-${TIMESTAMP}.tar.gz"
 
 if [[ -d "$TARGET_DIR" ]]; then
   echo "Criando backup de .env e data em $BACKUP"
@@ -29,7 +29,7 @@ else
   npm install --no-audit --no-fund
   npm run build
   if command -v pm2 >/dev/null 2>&1; then
-    pm2 startOrRestart dist/index.js --name zapforge-api
+    pm2 startOrRestart dist/index.js --name zapinho-api
     pm2 save
   else
     echo "Build concluído. Execute: cd $TARGET_DIR && npm start"

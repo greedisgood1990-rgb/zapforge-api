@@ -1,7 +1,7 @@
 services:
-  zapforge-api:
+  zapinho-api:
     build: .
-    container_name: zapforge-api
+    container_name: zapinho-api
     restart: unless-stopped
     env_file:
       - .env

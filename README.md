@@ -1,8 +1,8 @@
-# ZapForge API
+# Zapinho API
 
-ZapForge API is a self-hosted HTTP gateway for WhatsApp Web sessions. It provides session management, QR and phone-number pairing, message delivery, group administration, interactive messages, webhooks, Docker packaging and an OpenAPI interface.
+Zapinho API is a self-hosted HTTP gateway for WhatsApp Web sessions. It provides session management, QR and phone-number pairing, message delivery, group administration, interactive messages, webhooks, Docker packaging and an OpenAPI interface.
 
-The default provider is [Baileys](https://github.com/WhiskeySockets/Baileys). ZapForge is not affiliated with Meta or WhatsApp.
+The default provider is [Baileys](https://github.com/WhiskeySockets/Baileys). Zapinho is not affiliated with Meta or WhatsApp.
 
 ## Runtime requirements
 
@@ -16,8 +16,8 @@ The default provider is [Baileys](https://github.com/WhiskeySockets/Baileys). Za
 Generate a local `.env` with a free port between `9000` and `9999`:
 
 ```bash
-git clone https://github.com/greedisgood1990-rgb/zapforge-api.git
-cd zapforge-api
+git clone https://github.com/greedisgood1990-rgb/zapinho-api.git
+cd zapinho-api
 bash scripts/init-env.sh
 ```
 
@@ -147,7 +147,7 @@ curl -X POST http://localhost:9467/v1/messages/buttons \
   }'
 ```
 
-Baileys native-flow messages depend on the current WhatsApp Web protocol. ZapForge validates the message envelope and, by default, sends a readable text fallback if the native relay throws an error. Inspect `deliveryMode` in the response:
+Baileys native-flow messages depend on the current WhatsApp Web protocol. Zapinho validates the message envelope and, by default, sends a readable text fallback if the native relay throws an error. Inspect `deliveryMode` in the response:
 
 ```text
 native_flow
@@ -191,7 +191,7 @@ Provider-specific support is available at:
 GET /v1/sessions/:id/capabilities
 ```
 
-Interactive buttons and lists are marked experimental because WhatsApp Web protocol changes may affect them independently of the ZapForge release cycle.
+Interactive buttons and lists are marked experimental because WhatsApp Web protocol changes may affect them independently of the Zapinho release cycle.
 
 ## Webhook events
 
@@ -204,7 +204,7 @@ group.updated
 group.participants.updated
 ```
 
-Webhook payloads are signed with HMAC SHA-256 in `x-zapforge-signature`.
+Webhook payloads are signed with HMAC SHA-256 in `x-zapinho-signature`.
 
 ## Configuration reference
 
@@ -247,10 +247,10 @@ scripts/            setup and deployment utilities
 - Put the API behind HTTPS and a reverse proxy.
 - Restrict access to the dashboard and Swagger in public deployments.
 - Back up `data/`; it contains session credentials.
-- Do not run multiple ZapForge processes against the same session directory.
-- Keep Baileys and ZapForge versions pinned and test upgrades with a separate WhatsApp account.
+- Do not run multiple Zapinho processes against the same session directory.
+- Keep Baileys and Zapinho versions pinned and test upgrades with a separate WhatsApp account.
 - Treat interactive messages as protocol-dependent until validated against the target client versions.
 
 ## License
 
-MIT. WhatsApp is a trademark of Meta Platforms, Inc. ZapForge is an independent project and is not endorsed by Meta.
+MIT. WhatsApp is a trademark of Meta Platforms, Inc. Zapinho is an independent project and is not endorsed by Meta.

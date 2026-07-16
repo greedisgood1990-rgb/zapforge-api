@@ -17,5 +17,5 @@ export async function healthRoutes(app: FastifyInstance): Promise<void> {
         }
       }
     }
-  }, async () => ({ ok: true, name: 'ZapForge API', version: '1.2.0', uptime: process.uptime() }));
+  }, async () => ({ ok: true, name: 'Zapinho API', version: '1.2.0', uptime: process.uptime() }));
 }

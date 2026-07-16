@@ -1,4 +1,4 @@
-# ZapForge API v1.2.0
+# Zapinho API v1.2.0
 
 Base local:
 
@@ -136,7 +136,7 @@ Mencionar apenas pessoas selecionadas:
   "to": "5511999999999",
   "title": "Pedido #123",
   "body": "Como deseja continuar?",
-  "footer": "ZapForge",
+  "footer": "Zapinho",
   "buttons": [
     {"type": "reply", "id": "confirm", "text": "Confirmar"},
     {"type": "url", "text": "Abrir pedido", "url": "https://example.com/orders/123"},

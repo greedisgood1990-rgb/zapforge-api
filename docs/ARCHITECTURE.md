@@ -1,6 +1,6 @@
 # Arquitetura
 
-ZapForge API foi desenhada como um gateway com núcleo independente do motor de mensagens.
+Zapinho API foi desenhada como um gateway com núcleo independente do motor de mensagens.
 
 ```txt
 Cliente HTTP

@@ -1,6 +1,6 @@
 # Contribuindo
 
-Obrigado por contribuir com a ZapForge API.
+Obrigado por contribuir com a Zapinho API.
 
 ## Ambiente
 

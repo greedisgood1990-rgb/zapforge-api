@@ -35,7 +35,7 @@ await app.register(rateLimit, { max: config.RATE_LIMIT_MAX, timeWindow: config.R
 await app.register(swagger, {
   openapi: {
     info: {
-      title: 'ZapForge API',
+      title: 'Zapinho API',
       description: 'Self-hosted messaging gateway with REST API, multi-session support and signed webhooks.',
       version: '1.2.0'
     },
@@ -86,4 +86,4 @@ process.on('SIGTERM', () => void shutdown('SIGTERM'));
 process.on('SIGINT', () => void shutdown('SIGINT'));
 
 await app.listen({ host: config.HOST, port: config.PORT });
-app.log.info(`ZapForge API running on ${config.PUBLIC_URL}`);
+app.log.info(`Zapinho API running on ${config.PUBLIC_URL}`);
