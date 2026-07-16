@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.0 — 2026-07-16
+
+### Changed
+
+- Upgraded `@whiskeysockets/baileys` from `^6.7.23` to `^7.0.0-rc13` to resolve session instability that had been worked around only at the infrastructure level in a previous deployment.
+
 ## 1.3.0 — 2026-07-16
 
 ### Changed

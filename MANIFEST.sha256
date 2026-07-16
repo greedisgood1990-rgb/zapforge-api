@@ -1,6 +1,6 @@
 c5c049e76177593e31cd3f7f2c68060afd24b638a25f9e1a34e6556ba681c7df  ./ATUALIZACAO_1.1.0.md
 05df5f8a43abdc588580f5aead52b1f5af54f1a69f5beb1bf6c17bab4874a2cc  ./ATUALIZACAO_1.2.0.md
-87748c06d7e595eea2ffb019c68f43c3423a462fb676b5a870171a4f4b073a58  ./CHANGELOG.md
+8bebe73e64c4acfd62ec7b32ebb54ff440bc03518e14903ff7a86c73eeacb971  ./CHANGELOG.md
 c8cd3cbd9d8d9b8c6284e47ac57acdc6a9921438ac2f9273b60e91fea34842f8  ./CODE_OF_CONDUCT.md
 511b1f1674299f50581abced8b05fea6a3cb5d3498fd0a0152acddb5ab32fbe7  ./CONTRIBUTING.md
 fa759c33076d09b19eaae1069f5ecf0267615eff76ae444d3219bba87e0d697d  ./dist/adapters/baileys/BaileysEngine.js
@@ -46,8 +46,8 @@ a101cb5bc813fc768b81f9d9c0df92fd2e68d08e5145911bd7f8cc39ca57eea8  ./.github/work
 b2d1fa5be3adb43618dedeb70e26431dc2c5fcd034942ec4be915c4eb02608c2  ./.gitignore
 d4aa449a4e3cda78636f1061ea9747f470123752e1be12107de06410decab8b0  ./LICENSE
 c31285482d8dd42a35169dfca3f428f5aed460b71f6f7090d0b3f633ceba7fe2  ./openapi.yaml
-c5d096e4ed093321e809b8c8c7d23ff988ae47b8b11a841ef9d15f89e2d74e3e  ./package.json
-fe89df125ae98fee49a436eece49a03c98a4a4b20430581f5438d40239f23b9e  ./package-lock.json
+40820e466ffd80be5db39383250d92977a1c424bd0e9a29a8888e0b09bf41cb3  ./package.json
+378279cbe4f51d265c782c01f31c503ded3e41450b4a2556d0f1055886de66d0  ./package-lock.json
 dff14a4bd7fd9de56f3387032832fc95488a0bfdf6ff4c17bc45ce2101a58987  ./postman_collection.json
 acb2c37397626cade379ddb69bd6c8a7f570eb5a3f50a0ac1376ceebd7c5a5a9  ./public/dashboard.html
 31f3d693cbd0b64043327933923ab5a6055ab733dd8aa47c2e4ba68dd516c58f  ./README.md
