@@ -35,6 +35,7 @@ export interface BaileysEngineOptions {
   pairingCodeMaxAttempts: number;
   pairingCodeLockoutMs: number;
   pairingCodeStabilizationMs: number;
+  pairingCodeReadyTimeoutMs: number;
   pairingCodeTtlMs: number;
   reconnectBaseDelayMs: number;
   reconnectMaxDelayMs: number;
@@ -126,7 +127,6 @@ export class BaileysEngine implements MessagingEngine {
     const makeWASocket = baileys.default || baileys.makeWASocket;
     const useMultiFileAuthState = baileys.useMultiFileAuthState;
     const fetchLatestBaileysVersion = baileys.fetchLatestBaileysVersion;
-    const Browsers = baileys.Browsers;
     const { state, saveCreds } = await useMultiFileAuthState(this.authPath);
     this.registered = Boolean(state?.creds?.registered);
     this.update({
@@ -154,7 +154,9 @@ export class BaileysEngine implements MessagingEngine {
       ...(version ? { version } : {}),
       auth: state,
       printQRInTerminal: false,
-      browser: Browsers?.ubuntu ? Browsers.ubuntu(this.options.browserName) : undefined,
+      // Pairing-code registration is more reliable when the companion identifies as a Chrome Web client.
+      // This matches the browser tuple used by OpenWA's Baileys adapter.
+      browser: [this.options.browserName, 'Chrome', '120.0.0'],
       markOnlineOnConnect: false,
       syncFullHistory: false,
       generateHighQualityLinkPreview: true,
@@ -527,7 +529,47 @@ export class BaileysEngine implements MessagingEngine {
     return this.pairingInFlight;
   }
 
+  private async waitForPairingTransport(): Promise<void> {
+    const deadline = Date.now() + this.options.pairingCodeReadyTimeoutMs;
+
+    while (Date.now() < deadline) {
+      if (this.session.state === 'connected' || this.registered) {
+        throw conflict('This session is already linked. Logout before requesting a new pairing code.', 'session_already_linked');
+      }
+      if (!this.socket || typeof this.socket.requestPairingCode !== 'function') {
+        throw conflict('The session stopped before the pairing transport became ready.', 'session_not_initialized');
+      }
+
+      const transport = this.socket?.ws;
+      const transportOpen = transport?.isOpen === true || transport?.readyState === 1;
+      const registrationReady = Boolean(this.session.qr) || this.session.state === 'qr';
+      if (transportOpen || registrationReady) return;
+
+      if (['failed', 'logged_out', 'disconnected'].includes(this.session.state)) {
+        throw conflict(
+          `Session ${this.session.id} entered state ${this.session.state} before pairing became ready.`,
+          'pairing_transport_closed'
+        );
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    }
+
+    throw new ApiError(
+      'The WhatsApp registration transport did not become ready in time. Check network egress and try again without restarting the session repeatedly.',
+      504,
+      'pairing_transport_timeout',
+      {
+        sessionId: this.session.id,
+        state: this.session.state,
+        timeoutMs: this.options.pairingCodeReadyTimeoutMs
+      }
+    );
+  }
+
   private async generatePairingCode(phone: string): Promise<PairingCodeResult> {
+    await this.waitForPairingTransport();
+    const previousQr = this.session.qr || null;
     const elapsed = Date.now() - this.socketCreatedAt;
     const stabilizationDelay = Math.max(0, this.options.pairingCodeStabilizationMs - elapsed);
     if (stabilizationDelay > 0) {
@@ -584,12 +626,28 @@ export class BaileysEngine implements MessagingEngine {
       return result;
     } catch (error) {
       this.pairingModeActive = false;
-      this.update({ state: 'connecting' });
+      const providerStatusCode = extractProviderStatusCode(error);
+      const failureMessage = error instanceof Error ? error.message : String(error);
+      this.update({
+        state: previousQr ? 'qr' : 'connecting',
+        qr: previousQr,
+        metadata: {
+          ...this.session.metadata,
+          pairingFailedAt: nowIso(),
+          pairingFailure: failureMessage,
+          pairingFailureStatusCode: providerStatusCode ?? null
+        }
+      });
       if (error instanceof ApiError) throw error;
       throw new ApiError(
-        `Pairing code generation failed: ${error instanceof Error ? error.message : String(error)}`,
+        `Pairing code generation failed: ${failureMessage}`,
         502,
-        'pairing_provider_error'
+        'pairing_provider_error',
+        {
+          providerStatusCode: providerStatusCode ?? null,
+          sessionState: this.session.state,
+          qrAvailable: Boolean(previousQr)
+        }
       );
     }
   }
@@ -1107,6 +1165,12 @@ function createSilentBaileysLogger(): any {
   };
   logger.child = () => logger;
   return logger;
+}
+
+function extractProviderStatusCode(error: unknown): number | undefined {
+  const candidate = error as { output?: { statusCode?: unknown }; statusCode?: unknown; data?: { statusCode?: unknown } };
+  const values = [candidate?.output?.statusCode, candidate?.statusCode, candidate?.data?.statusCode];
+  return values.find((value): value is number => typeof value === 'number' && Number.isFinite(value));
 }
 
 function normalizePairingPhoneNumber(input: string): string {

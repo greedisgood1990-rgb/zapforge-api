@@ -56,7 +56,7 @@
       <label for="pairingPhone">Número com DDI</label>
       <input id="pairingPhone" inputmode="tel" placeholder="5511999999999" />
       <button onclick="requestPairingCode(this)">Gerar código</button>
-      <p class="notice">A API reaproveita um código ainda válido e bloqueia solicitações repetidas. Não recarregue a sessão para tentar gerar outro código.</p>
+      <p class="notice">A API inicia a sessão, aguarda o transporte do WhatsApp ficar pronto e só então solicita o código. Se o provider falhar, o QR atual permanece disponível como alternativa.</p>
       <div id="pairingCode" class="code">—</div>
       <pre id="pairingOut"></pre>
     </div>

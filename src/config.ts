@@ -30,6 +30,7 @@ const schema = z.object({
   PAIRING_CODE_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(10).default(3),
   PAIRING_CODE_LOCKOUT_MS: z.coerce.number().int().min(60_000).max(3_600_000).default(600_000),
   PAIRING_CODE_STABILIZATION_MS: z.coerce.number().int().min(0).max(30_000).default(3_000),
+  PAIRING_CODE_READY_TIMEOUT_MS: z.coerce.number().int().min(5_000).max(120_000).default(30_000),
   PAIRING_CODE_TTL_MS: z.coerce.number().int().min(60_000).max(600_000).default(180_000),
   RECONNECT_BASE_DELAY_MS: z.coerce.number().int().min(1_000).max(60_000).default(5_000),
   RECONNECT_MAX_DELAY_MS: z.coerce.number().int().min(5_000).max(600_000).default(120_000),

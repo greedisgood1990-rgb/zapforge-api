@@ -105,7 +105,9 @@ Pairing requests are controlled per session:
 - 60-second cooldown between new codes;
 - maximum of three new codes in ten minutes;
 - ten-minute lockout after the limit;
-- three-second socket stabilization before the provider request.
+- waits up to 30 seconds for the WhatsApp registration transport to become ready;
+- applies a three-second stabilization interval before the provider request;
+- preserves the current QR as a fallback if the provider rejects pairing-code generation.
 
 These controls prevent connection loops and accidental repeated device-link operations. They do not guarantee protection against account restrictions. Operators remain responsible for complying with WhatsApp terms and acceptable-use requirements.
 

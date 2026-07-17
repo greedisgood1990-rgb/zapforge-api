@@ -289,6 +289,7 @@ export class SessionManager {
         pairingCodeMaxAttempts: this.config.PAIRING_CODE_MAX_ATTEMPTS,
         pairingCodeLockoutMs: this.config.PAIRING_CODE_LOCKOUT_MS,
         pairingCodeStabilizationMs: this.config.PAIRING_CODE_STABILIZATION_MS,
+        pairingCodeReadyTimeoutMs: this.config.PAIRING_CODE_READY_TIMEOUT_MS,
         pairingCodeTtlMs: this.config.PAIRING_CODE_TTL_MS,
         reconnectBaseDelayMs: this.config.RECONNECT_BASE_DELAY_MS,
         reconnectMaxDelayMs: this.config.RECONNECT_MAX_DELAY_MS,
