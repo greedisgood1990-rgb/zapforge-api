@@ -1,0 +1,46 @@
+name: Apply phone pairing reliability fix
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'agent/fix-phone-pairing-readiness'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+
+      - name: Apply pairing fix
+        run: python3 .zapinho-pairing/apply_phone_pairing_fix.py
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Build and run regression tests
+        run: npm test
+
+      - name: Validate patch
+        run: |
+          git diff --check
+          grep -q 'PAIRING_CODE_READY_TIMEOUT_MS' src/config.ts
+          grep -q 'waitForPairingTransport' src/adapters/baileys/BaileysEngine.ts
+          grep -q '"version": "1.4.1"' package.json
+
+      - name: Commit validated changes
+        run: |
+          if git diff --quiet; then
+            echo 'No source changes to commit.'
+            exit 0
+          fi
+          git config user.name 'zapinho-pairing-review'
+          git config user.email 'actions@users.noreply.github.com'
+          git add -A
+          git commit -m 'fix: wait for transport before phone pairing'
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
