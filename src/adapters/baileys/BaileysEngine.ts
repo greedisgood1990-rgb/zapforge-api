@@ -127,7 +127,6 @@ export class BaileysEngine implements MessagingEngine {
     const makeWASocket = baileys.default || baileys.makeWASocket;
     const useMultiFileAuthState = baileys.useMultiFileAuthState;
     const fetchLatestBaileysVersion = baileys.fetchLatestBaileysVersion;
-    const Browsers = baileys.Browsers;
     const { state, saveCreds } = await useMultiFileAuthState(this.authPath);
     this.registered = Boolean(state?.creds?.registered);
     this.update({
