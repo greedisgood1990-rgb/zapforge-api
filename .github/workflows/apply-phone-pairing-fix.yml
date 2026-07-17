@@ -18,7 +18,9 @@ jobs:
           fetch-depth: 0
 
       - name: Apply pairing fix
-        run: python3 .zapinho-pairing/apply_phone_pairing_fix.py
+        run: |
+          sed -i "s/replace_once('openapi.yaml', '  version: 1.4.0', '  version: 1.4.1')/replace_once('openapi.yaml', '  version: 1.2.1', '  version: 1.4.1')/" .zapinho-pairing/apply_phone_pairing_fix.py
+          python3 .zapinho-pairing/apply_phone_pairing_fix.py
 
       - name: Install dependencies
         run: npm install --no-audit --no-fund
@@ -32,6 +34,7 @@ jobs:
           grep -q 'PAIRING_CODE_READY_TIMEOUT_MS' src/config.ts
           grep -q 'waitForPairingTransport' src/adapters/baileys/BaileysEngine.ts
           grep -q '"version": "1.4.1"' package.json
+          grep -q 'version: 1.4.1' openapi.yaml
 
       - name: Commit validated changes
         run: |
