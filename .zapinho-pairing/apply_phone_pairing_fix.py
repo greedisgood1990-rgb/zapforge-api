@@ -18,11 +18,10 @@ replace_once(
     '  pairingCodeStabilizationMs: number;\n  pairingCodeReadyTimeoutMs: number;\n  pairingCodeTtlMs: number;'
 )
 
-replace_once(
-    'src/adapters/baileys/BaileysEngine.ts',
-    '    const fetchLatestBaileysVersion = baileys.fetchLatestBaileysVersion;\n    const Browsers = baileys.Browsers;',
-    '    const fetchLatestBaileysVersion = baileys.fetchLatestBaileysVersion;'
-)
+engine_file = Path('src/adapters/baileys/BaileysEngine.ts')
+engine_text = engine_file.read_text(encoding='utf-8')
+engine_text = engine_text.replace('    const Browsers = baileys.Browsers;\n', '')
+engine_file.write_text(engine_text, encoding='utf-8')
 
 replace_once(
     'src/adapters/baileys/BaileysEngine.ts',
