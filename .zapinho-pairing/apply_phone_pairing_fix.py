@@ -202,6 +202,6 @@ replace_once(
 )
 
 replace_once('package.json', '"version": "1.4.0"', '"version": "1.4.1"')
-replace_once('openapi.yaml', '  version: 1.4.0', '  version: 1.4.1')
+replace_once('openapi.yaml', '  version: 1.2.1', '  version: 1.4.1')
 
 print('Phone pairing reliability patch applied.')

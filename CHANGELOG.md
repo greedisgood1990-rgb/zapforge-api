@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.4.1 — 2026-07-17
+
+### Fixed
+
+- Waits for the WhatsApp registration transport before calling `requestPairingCode`, removing the fixed-delay startup race.
+- Uses an explicit Chrome Web companion identity, matching the working OpenWA Baileys adapter.
+- Restores the previous QR when pairing-code generation fails and exposes the provider status code in the API error details.
+- Added pairing transport readiness and provider-failure regression tests.
+
 ## 1.4.0 — 2026-07-16
 
 ### Changed

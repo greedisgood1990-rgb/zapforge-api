@@ -1,6 +1,6 @@
 {
   "name": "zapinho-api",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "Self-hosted WhatsApp gateway with controlled session lifecycle, QR and pairing-code authentication, group management, interactive messages and signed webhooks.",
   "type": "module",
   "main": "dist/index.js",

@@ -12,6 +12,7 @@ const options = {
   pairingCodeMaxAttempts: 3,
   pairingCodeLockoutMs: 600_000,
   pairingCodeStabilizationMs: 0,
+  pairingCodeReadyTimeoutMs: 1_000,
   pairingCodeTtlMs: 180_000,
   reconnectBaseDelayMs: 5_000,
   reconnectMaxDelayMs: 120_000,
@@ -34,6 +35,8 @@ test('reuses a still-valid pairing code without another provider request', async
     }
   };
   engine.socketCreatedAt = Date.now() - 10_000;
+  engine.session.state = 'qr';
+  engine.session.qr = 'qr-ready';
 
   const first = await engine.requestPairingCode('+55 (11) 99999-9999');
   const second = await engine.requestPairingCode('5511999999999');
@@ -49,6 +52,8 @@ test('persists pairing throttling metadata without storing the pairing code', as
   const engine = new BaileysEngine(options);
   engine.socket = { requestPairingCode: async () => '87654321' };
   engine.socketCreatedAt = Date.now() - 10_000;
+  engine.session.state = 'qr';
+  engine.session.qr = 'qr-ready';
 
   const result = await engine.requestPairingCode('5511999999999');
   const policy = engine.snapshot().metadata.pairingPolicy;
@@ -57,6 +62,59 @@ test('persists pairing throttling metadata without storing the pairing code', as
   assert.equal(Array.isArray(policy.attempts), true);
   assert.equal(policy.attempts.length, 1);
   assert.equal(JSON.stringify(engine.snapshot().metadata).includes('87654321'), false);
+  await engine.stop();
+});
+
+test('waits for the registration transport before requesting a pairing code', async () => {
+  const engine = new BaileysEngine({ ...options, pairingCodeReadyTimeoutMs: 1_000 });
+  let providerCalls = 0;
+  engine.socket = {
+    requestPairingCode: async () => {
+      providerCalls += 1;
+      return '11223344';
+    }
+  };
+  engine.socketCreatedAt = Date.now() - 10_000;
+
+  const pending = engine.requestPairingCode('5511999999999');
+  await new Promise((resolve) => setTimeout(resolve, 40));
+  assert.equal(providerCalls, 0);
+
+  engine.session.state = 'qr';
+  engine.session.qr = 'late-qr';
+  const result = await pending;
+
+  assert.equal(result.code, '11223344');
+  assert.equal(providerCalls, 1);
+  await engine.stop();
+});
+
+test('restores the previous QR and reports provider status when pairing fails', async () => {
+  const engine = new BaileysEngine(options);
+  const providerError = new Error('Connection Failure');
+  providerError.output = { statusCode: 408 };
+  engine.socket = {
+    requestPairingCode: async () => {
+      throw providerError;
+    }
+  };
+  engine.socketCreatedAt = Date.now() - 10_000;
+  engine.session.state = 'qr';
+  engine.session.qr = 'existing-qr';
+
+  await assert.rejects(
+    engine.requestPairingCode('5511999999999'),
+    (error) => {
+      assert.equal(error.code, 'pairing_provider_error');
+      assert.equal(error.details.providerStatusCode, 408);
+      assert.equal(error.details.qrAvailable, true);
+      return true;
+    }
+  );
+
+  const snapshot = engine.snapshot();
+  assert.equal(snapshot.state, 'qr');
+  assert.equal(snapshot.qr, 'existing-qr');
   await engine.stop();
 });
 
